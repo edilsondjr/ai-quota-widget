@@ -10,7 +10,7 @@ let inSettings = false;
 let t = (k) => k;
 let lang = 'en';
 
-// Textos vêm do processo principal (locales/*.json) junto com o estado.
+// Strings come from the main process (locales/*.json) along with the state.
 function applyStrings(state) {
   if (!state.strings) return;
   t = i18n.translator(state.strings);
@@ -20,8 +20,8 @@ function applyStrings(state) {
   document.querySelectorAll('[data-i18n-title]').forEach((n) => (n.title = t(n.dataset.i18nTitle)));
 }
 
-// Texto de um código vindo de um provedor (`err.<código>` / `note.<código>`).
-// Código sem tradução (ex.: mensagem de exceção) é mostrado como veio.
+// Text for a code coming from a provider (`err.<code>` / `note.<code>`).
+// A code with no translation (e.g. an exception message) is shown as-is.
 function providerText(prefix, code, params) {
   const p = { ...params };
   if (p.since != null) p.since = new Date(p.since).toLocaleDateString(lang, { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
@@ -154,14 +154,14 @@ function render(state) {
     ? t('foot.updated', { time: new Date(state.updatedAt).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) })
     : t('foot.updating');
   foot.textContent = state.version ? `${when} · v${state.version}` : when;
-  if (inSettings) return; // não refaz o formulário enquanto o usuário edita
+  if (inSettings) return; // don't rebuild the form while the user is editing
   const ids = ORDER.filter((id) => enabled[id] !== false);
   if (!ids.length) list.replaceChildren(el('div', 'err pad', t('list.none')));
   else list.replaceChildren(...ids.map((id) => card(id, state.providers[id], cfg)));
   fitWindow();
 }
 
-// ---------- tela de configuração ----------
+// ---------- settings screen ----------
 function check(label, checked, cls) {
   const wrap = el('label', `chk ${cls || ''}`);
   const input = document.createElement('input');
@@ -197,7 +197,7 @@ function openSettings() {
 
   const form = el('div', 'form');
 
-  // 1) o que exibir
+  // 1) what to show
   form.append(el('h3', null, t('s.show')));
   const provChecks = {};
   const winChecks = {};
@@ -207,7 +207,7 @@ function openSettings() {
     form.append(pc.wrap);
     winChecks[id] = [];
     const keys = ((last.providers[id] && last.providers[id].windows) || []).map((w) => w.key);
-    // inclui também janelas já ocultas que não vieram na última leitura
+    // also include already-hidden windows that weren't in the last reading
     for (const h of hidden[id] || []) if (!keys.includes(h)) keys.push(h);
     keys.forEach((key) => {
       const wc = check(winLabel(key), !(hidden[id] || []).includes(key), 'win-chk');
@@ -216,14 +216,14 @@ function openSettings() {
     });
   }
 
-  // 2) atualização
+  // 2) refresh
   form.append(el('h3', null, t('s.refresh')));
   const interval = textInput('number', cfg.intervalMin, '5');
   interval.min = 1;
   interval.max = 240;
   form.append(field(t('s.interval'), interval));
 
-  // 3) contas e chaves
+  // 3) accounts and keys
   form.append(el('h3', null, t('s.keys')));
   const ollamaKey = textInput('password', '', cfg.hasOllamaKey ? t('s.key_set_ph') : t('s.ollama_key_ph'));
   form.append(field(t('s.ollama_key'), ollamaKey));
@@ -259,7 +259,7 @@ function openSettings() {
   }
   if (clear.children.length) form.append(clear);
 
-  // 4) geral
+  // 4) general
   form.append(el('h3', null, t('s.general')));
   const langSel = document.createElement('select');
   for (const l of last.languages || []) {
@@ -333,5 +333,5 @@ $('#btn-hide').onclick = () => window.qw.hide();
 
 window.qw.onState(render);
 window.qw.getState().then(render);
-// mantém os contadores de renovação vivos sem refazer as requisições
+// keeps the reset countdowns live without re-running the requests
 setInterval(() => last && render(last), 30000);

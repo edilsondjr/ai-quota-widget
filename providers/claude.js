@@ -12,18 +12,18 @@ function collectWindows(obj, out = [], key = '') {
   return out;
 }
 
-// /api/organizations -> uuid da organização de chat (ou null)
+// /api/organizations -> uuid of the chat organization (or null)
 function parseOrgs(orgs) {
   if (!Array.isArray(orgs) || !orgs.length) return null;
   const chat = orgs.find((o) => (o.capabilities || []).includes('chat')) || orgs[0];
   return chat.uuid || null;
 }
 
-// /api/organizations/<uuid>/usage -> { windows } ou { error }
+// /api/organizations/<uuid>/usage -> { windows } or { error }
 function parseUsage(body, cfg = {}) {
   const seen = new Map();
   for (const w of collectWindows(body)) if (!seen.has(w.key)) seen.set(w.key, w);
-  // chaves internas sem rótulo conhecido (ex.: iguana_necktie) ficam ocultas, a menos que claudeShowUnknown seja true
+  // internal keys with no known label (e.g. iguana_necktie) stay hidden unless claudeShowUnknown is true
   const windows = [...seen.values()]
     .filter((w) => KNOWN.has(w.key) || cfg.claudeShowUnknown)
     .sort((a, b) => {

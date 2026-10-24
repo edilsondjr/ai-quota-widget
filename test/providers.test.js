@@ -1,6 +1,6 @@
-// Testes dos leitores de resposta. As fixtures em test/fixtures são SINTÉTICAS: seguem o
-// formato que os parsers esperam, sem dados de conta reais. Se um serviço mudar o formato,
-// atualize a fixture com uma resposta anonimizada e ajuste o parser.
+// Tests for the response parsers. The fixtures in test/fixtures are SYNTHETIC: they follow the
+// shape the parsers expect, with no real account data. If a service changes its format,
+// update the fixture with an anonymized response and fix the parser.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');

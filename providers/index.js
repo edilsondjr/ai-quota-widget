@@ -1,9 +1,9 @@
-// Índice dos provedores. Todos os endpoints usados são NÃO oficiais (extraídos do que
-// os próprios sites/CLIs usam). Se algum quebrar, o ajuste é só no arquivo do provedor.
+// Provider registry. All endpoints used are UNOFFICIAL (taken from what the sites/CLIs
+// themselves use). If one breaks, the fix is only in that provider's file.
 //
-// Para adicionar um provedor: crie providers/<id>.js exportando
+// To add a provider: create providers/<id>.js exporting
 //   { id, name, loginUrl, run(cfg) -> { windows, plan?, note? } | { error } | { action } }
-// e acrescente-o na lista abaixo.
+// and add it to the list below.
 const { partitionFor, cleanUA, clearSession } = require('./browser');
 const claude = require('./claude');
 

@@ -1,8 +1,8 @@
 const { num, toMs, parseJson, isCloudflare } = require('./util');
 const { pageFetch, netFetch } = require('./browser');
 
-// Formato real de ollama.com/api/usage: { limits: { session: { usage }, weekly: { usage } }, activity: {...} }
-// "usage" vem como fração (0.213 = 21,3%).
+// Real shape of ollama.com/api/usage: { limits: { session: { usage }, weekly: { usage } }, activity: {...} }
+// "usage" is a fraction (0.213 = 21.3%).
 function parseLimits(j) {
   const limits = (j && j.limits) || {};
   const out = [];
@@ -12,14 +12,14 @@ function parseLimits(j) {
     const raw = num(o.usage);
     if (raw === null) continue;
     const percent = Math.round((raw <= 1 ? raw * 100 : raw) * 10) / 10;
-    // o campo de renovação não é documentado: procura qualquer chave com cara de data de reset
+    // the reset field is undocumented: look for any key that looks like a reset date
     const rk = Object.keys(o).find((k) => /reset|end|until|expire/i.test(k) && toMs(o[k]) !== null && typeof o[k] !== 'boolean');
     out.push({ key, percent, resetsAt: rk ? toMs(o[rk]) : null });
   }
   return out;
 }
 
-// Fallback sem chave: lê a página /settings logada.
+// Fallback without an API key: reads the signed-in /settings page.
 function parseHtml(html) {
   const clean = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ');
   const text = clean.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
@@ -37,8 +37,8 @@ function parseHtml(html) {
   return { windows: out, plan: plan ? (plan[1] || plan[2]).toLowerCase() : null };
 }
 
-// Planos novos do Ollama: crédito mensal em USD (Pro = US$ 60, Max = US$ 300), renovado no dia
-// em que a assinatura começou. A API só expõe o gasto diário (range = 24h | 7d | 30d).
+// Ollama's newer plans meter a monthly USD credit (Pro = $60, Max = $300), renewed on the day
+// the subscription started. The API only exposes daily spend (range = 24h | 7d | 30d).
 const ALLOWANCE = { pro: 60, max: 300 };
 
 function cycleBounds(day, now = new Date()) {
@@ -63,7 +63,7 @@ function cycleBounds(day, now = new Date()) {
   return { start, end: Date.UTC(ny, nm, Math.min(day, dim(ny, nm))) };
 }
 
-// Gasto do ciclo a partir de j.buckets. `me` = { plan, createdAt } de /api/me (opcional).
+// Spend in the current cycle from j.buckets. `me` = { plan, createdAt } from /api/me (optional).
 function parseBuckets(j, cfg = {}, me = {}, now = new Date()) {
   const day = Number(cfg.ollamaBillingDay) || (me.createdAt ? new Date(me.createdAt).getUTCDate() : 1);
   const { start, end } = cycleBounds(day, now);
@@ -77,7 +77,7 @@ function parseBuckets(j, cfg = {}, me = {}, now = new Date()) {
   }
   const plan = me.plan || null;
   const allowance = num(cfg.ollamaMonthlyCredits) || ALLOWANCE[plan] || null;
-  // `since` vai em ms (UTC); a interface formata a data no idioma escolhido
+  // `since` is in ms (UTC); the UI formats the date in the chosen language
   const noteParams = { since: start, spent: spent.toFixed(2), requests };
   if (!allowance) {
     return { plan, windows: [], note: 'cycle_spent', noteParams, error: 'ollama_nocredit' };
@@ -108,7 +108,7 @@ async function runApi(key, cfg) {
   } catch (_) {}
   if (!j || typeof j !== 'object') return { error: 'ollama_notjson' };
 
-  // planos antigos: limites de sessão/semana
+  // older plans: session/weekly limits
   const legacy = parseLimits(j);
   if (legacy.length) return { windows: legacy };
 

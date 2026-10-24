@@ -1,14 +1,14 @@
 const { num, toMs, parseJson, isCloudflare } = require('./util');
 const { pageFetch } = require('./browser');
 
-// /backend-api/wham/usage -> { windows, plan } ou { error }
+// /backend-api/wham/usage -> { windows, plan } or { error }
 function parseUsage(body, now = Date.now()) {
   const rl = body.rate_limit || {};
   const windows = [];
   for (const w of [rl.primary_window, rl.secondary_window]) {
     if (!w) continue;
     const secs = num(w.limit_window_seconds);
-    // `secs_<n>` = janela de duração fora do comum; a interface formata a duração
+    // `secs_<n>` = window with an unusual length; the UI formats the duration
     const key = secs === 18000 ? 'five_hour' : secs === 604800 ? 'weekly' : secs ? `secs_${secs}` : 'window';
     const resetsAt = w.reset_at ? toMs(w.reset_at) : num(w.reset_after_seconds) != null ? now + w.reset_after_seconds * 1000 : null;
     windows.push({ key, percent: num(w.used_percent) ?? 0, resetsAt });

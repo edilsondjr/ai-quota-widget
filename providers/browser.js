@@ -1,5 +1,5 @@
-// Acesso web via Chromium do Electron (cookies + TLS reais). O Electron é carregado
-// sob demanda para que os provedores possam ser importados em testes, fora do app.
+// Web access through the Electron Chromium (real cookies + TLS). Electron is loaded
+// lazily so the providers can be imported in tests, outside the app.
 const electron = () => require('electron');
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
@@ -21,7 +21,7 @@ function cleanUA(id) {
   uaDone.add(id);
 }
 
-// ---------- fetch dentro de uma página real ----------
+// ---------- fetch inside a real page ----------
 const hidden = new Map();
 
 async function getHidden(id, origin) {
@@ -39,7 +39,7 @@ async function getHidden(id, origin) {
   try {
     await win.loadURL(origin + '/robots.txt');
   } catch (_) {
-    /* mesmo com erro de carga o contexto de origem pode servir */
+    /* even on a load error the origin context may still work */
   }
   return win;
 }
@@ -67,7 +67,7 @@ async function clearSession(id) {
   await electron().session.fromPartition(partitionFor(id)).clearStorageData();
 }
 
-// fetch com a pilha de rede do Electron (para APIs com chave, sem cookies)
+// fetch using the Electron network stack (for API-key endpoints, no cookies)
 const netFetch = (...args) => electron().net.fetch(...args);
 
 module.exports = { partitionFor, cleanUA, pageFetch, clearSession, netFetch };

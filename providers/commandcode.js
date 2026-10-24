@@ -24,7 +24,7 @@ async function get(p, key) {
   return { status: r.status, body };
 }
 
-// /alpha/billing/credits (+ plano opcional de /alpha/billing/subscriptions) -> { windows, plan, note }
+// /alpha/billing/credits (+ optional plan from /alpha/billing/subscriptions) -> { windows, plan, note }
 function parseCredits(body, plan = null) {
   const wl = body.windowLimits || {};
   const windows = [];
@@ -41,7 +41,7 @@ function parseCredits(body, plan = null) {
   return { windows, plan, note: monthly != null ? 'credits_left' : null, noteParams: { amount: total.toFixed(2) } };
 }
 
-// /alpha/billing/subscriptions -> id do plano (ou null)
+// /alpha/billing/subscriptions -> plan id (or null)
 const parsePlan = (body) => body?.data?.planId || null;
 
 async function run(cfg) {

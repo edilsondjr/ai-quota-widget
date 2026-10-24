@@ -4,7 +4,7 @@ const path = require('path');
 const { PROVIDERS, collect, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
 const { translator } = require('./renderer/i18n');
 
-// Idiomas = arquivos em locales/. Para acrescentar um, basta colocar <código>.json lá.
+// Languages = files in locales/. To add one, just drop <code>.json in there.
 const LOCALES = {};
 for (const f of fs.readdirSync(path.join(__dirname, 'locales'))) {
   if (f.endsWith('.json')) LOCALES[f.slice(0, -5)] = JSON.parse(fs.readFileSync(path.join(__dirname, 'locales', f), 'utf8'));
@@ -12,7 +12,7 @@ for (const f of fs.readdirSync(path.join(__dirname, 'locales'))) {
 const FALLBACK_LANG = 'en';
 let t = translator(LOCALES[FALLBACK_LANG]);
 
-// Antes do suporte a idiomas, hiddenWindows guardava o texto em português da janela.
+// Before language support, hiddenWindows stored the (Portuguese) window label.
 const LEGACY_WINDOW_KEYS = {
   claude: { '5 h': 'five_hour', Semana: 'seven_day', 'Sonnet (sem.)': 'seven_day_sonnet', 'Opus (sem.)': 'seven_day_opus', 'Design (sem.)': 'seven_day_omelette', 'Uso extra (mês)': 'extra_usage' },
   chatgpt: { '5 h': 'five_hour', Semana: 'weekly' },
@@ -43,7 +43,7 @@ const state = { providers: {}, updatedAt: null, loading: false, pinned: true, ve
 
 function applyLanguage() {
   if (!LOCALES[cfg.language]) cfg.language = FALLBACK_LANG;
-  // chaves que faltarem num idioma caem para o inglês
+  // keys missing from a language fall back to English
   state.strings = { ...LOCALES[FALLBACK_LANG], ...LOCALES[cfg.language] };
   state.lang = cfg.language;
   state.languages = Object.entries(LOCALES).map(([code, l]) => ({ code, name: l._name || code }));
@@ -52,8 +52,8 @@ function applyLanguage() {
 
 const cfgPath = () => path.join(app.getPath('userData'), 'config.json');
 
-// Chaves de API ficam criptografadas em disco (safeStorage = DPAPI no Windows, atrelada ao usuário).
-// Em memória (cfg) seguem em texto puro; no arquivo vão em `secrets` como base64.
+// API keys are encrypted on disk (safeStorage = DPAPI on Windows, tied to the user).
+// In memory (cfg) they stay plain text; in the file they go under `secrets` as base64.
 const SECRET_KEYS = ['ollamaApiKey', 'commandcodeApiKey'];
 const canEncrypt = () => safeStorage.isEncryptionAvailable();
 
@@ -65,10 +65,10 @@ function readSecrets(raw) {
       try {
         out[k] = safeStorage.decryptString(Buffer.from(enc[k], 'base64'));
       } catch (_) {
-        out[k] = ''; // criptografado por outro usuário/máquina: precisa digitar de novo
+        out[k] = ''; // encrypted by another user/machine: has to be entered again
       }
     } else if (typeof raw[k] === 'string' && raw[k]) {
-      out[k] = raw[k]; // config antigo em texto puro: migrado no próximo saveCfg
+      out[k] = raw[k]; // old plaintext config: migrated on the next saveCfg
     }
   }
   return out;
@@ -96,7 +96,7 @@ function loadCfg() {
   state.config = publicConfig();
 }
 
-// Config enviada à interface: nunca inclui as chaves de API, só se existem.
+// Config sent to the UI: never includes the API keys, only whether they exist.
 function publicConfig() {
   return {
     language: cfg.language,
@@ -208,7 +208,7 @@ function createWindow() {
 }
 
 function makeTrayIcon() {
-  // Ícone gerado em código (quadrado arredondado), sem depender de arquivo.
+  // Icon generated in code (rounded square), no file needed.
   const size = 16;
   const buf = Buffer.alloc(size * size * 4);
   for (let y = 0; y < size; y++) {
@@ -337,7 +337,7 @@ ipcMain.handle('set-config', async (_e, patch) => {
     cfg.ollamaMonthlyCredits = v && v > 0 ? v : null;
   }
   if ('claudeShowUnknown' in patch) cfg.claudeShowUnknown = !!patch.claudeShowUnknown;
-  // chaves: só mudam se vierem no patch; string vazia apaga
+  // keys: only change if present in the patch; an empty string deletes
   for (const k of ['ollamaApiKey', 'commandcodeApiKey']) {
     if (typeof patch[k] === 'string') cfg[k] = patch[k].trim();
   }
@@ -358,12 +358,12 @@ ipcMain.on('resize', (_e, h) => {
   clampToScreen();
 });
 
-// ---------- ciclo de vida ----------
+// ---------- lifecycle ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    // Pode disparar enquanto a instância anterior ainda está encerrando.
+    // May fire while the previous instance is still shutting down.
     if (app.isQuitting || !win || win.isDestroyed()) return;
     win.show();
     clampToScreen();

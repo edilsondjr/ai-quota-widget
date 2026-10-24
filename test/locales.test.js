@@ -1,5 +1,5 @@
-// Garante que todo idioma cobre as mesmas chaves do inglês e usa os mesmos {parâmetros},
-// e que os códigos devolvidos pelos provedores têm texto.
+// Ensures every language covers the same keys as English and uses the same {placeholders},
+// and that every code returned by the providers has text.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
