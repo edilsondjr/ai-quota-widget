@@ -104,7 +104,7 @@ If a service is not built in, add it in **Settings → Custom providers → Add 
 - `method`: `GET` or `POST`; for `POST`, `body` is a JSON string.
 - Paths use dots; arrays use `items[0].value`. `scale: "fraction"` multiplies the value by 100.
 - Each window needs `key` and `percent`; `label`, `resetsAt` and `detail` are optional.
-- A note template can use `{name}` values resolved from `mapping.note.values`.
+- A note template can use `{name}` values resolved from `mapping.note.values`, and can span multiple lines: press Enter in the guided editor or use `\n` in JSON.
 - The provider must return JSON over HTTPS (HTTP is allowed only for localhost); requests time out after 15 seconds.
 - The whole spec, including `headers` and `body`, is encrypted at rest in `~/.quotawidget/config.json` (`customProvidersEnc`). Prefer the API key field for secrets; the spec is encrypted as defense in depth.
 

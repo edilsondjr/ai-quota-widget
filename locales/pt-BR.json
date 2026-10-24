@@ -148,6 +148,7 @@
   "s.custom_detail_path": "Caminho do detalhe",
   "s.custom_note": "Nota",
   "s.custom_note_template": "Modelo da nota",
+  "s.custom_note_template_hint": "Pressione Enter para uma nova linha.",
   "s.custom_note_amount": "Caminho do valor",
   "s.custom_plan_path": "Caminho do plano",
   "s.custom_add_window": "Adicionar janela",

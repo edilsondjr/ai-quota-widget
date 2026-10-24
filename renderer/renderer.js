@@ -703,7 +703,10 @@ function customScreen(target) {
     fitWindow();
   };
 
-  g.noteTemplate = textInput('text', initial.guided.noteTemplate, 'Balance: {amount}');
+  g.noteTemplate = textarea(initial.guided.noteTemplate, 2);
+  g.noteTemplate.id = 'custom-note-template';
+  g.noteTemplate.classList.add('note-template');
+  g.noteTemplate.placeholder = 'Generations: {generated}/{total}\nLeft: {amount}';
   g.plan = textInput('text', initial.guided.plan, 'data.plan');
 
   const authHeaderField = field(t('s.custom_auth_header_name'), g.authHeader);
@@ -723,7 +726,7 @@ function customScreen(target) {
     windowsBox,
     addWindowBtn,
     el('h3', null, t('s.custom_note')),
-    field(t('s.custom_note_template'), g.noteTemplate),
+    field(t('s.custom_note_template'), g.noteTemplate, t('s.custom_note_template_hint')),
     noteBox,
     addNoteValueBtn,
     field(t('s.custom_plan_path'), g.plan)

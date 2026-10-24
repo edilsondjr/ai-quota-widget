@@ -148,6 +148,7 @@
   "s.custom_detail_path": "Detail path",
   "s.custom_note": "Note",
   "s.custom_note_template": "Note template",
+  "s.custom_note_template_hint": "Press Enter for a new line.",
   "s.custom_note_amount": "Amount path",
   "s.custom_plan_path": "Plan path",
   "s.custom_add_window": "Add window",

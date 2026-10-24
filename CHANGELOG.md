@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.10.1
+
+### Fixed
+
+- Custom provider note templates can span multiple lines. The guided Note template is now a textarea and the card preserves line breaks; `\n` also works in JSON.
+
 ## 0.10.0
 
 ### Added

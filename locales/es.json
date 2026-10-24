@@ -148,6 +148,7 @@
   "s.custom_detail_path": "Ruta del detalle",
   "s.custom_note": "Nota",
   "s.custom_note_template": "Plantilla de nota",
+  "s.custom_note_template_hint": "Pulsa Enter para una línea nueva.",
   "s.custom_note_amount": "Ruta del importe",
   "s.custom_plan_path": "Ruta del plan",
   "s.custom_add_window": "Añadir ventana",

@@ -103,7 +103,7 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByLabel('Name', { exact: true }).fill('Local test');
   await page.getByLabel('URL', { exact: true }).fill(`http://127.0.0.1:${port}/usage`);
   await page.locator('#custom-auth').selectOption('none');
-  await page.getByLabel('Note template', { exact: true }).fill('Balance: {amount}');
+  await page.locator('#custom-note-template').fill('Balance: {amount}');
   await page.locator('#custom-note-value-0-path').fill('=Math.round(data.data.balance)');
   await page.getByRole('button', { name: 'Add window', exact: true }).click();
   await page.locator('#custom-window-1-key').fill('week');

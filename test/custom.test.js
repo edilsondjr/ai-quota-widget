@@ -122,6 +122,14 @@ test('custom: normalizeSpec validates expressions and rejects unsafe ones', () =
   assert.equal(bad.ok, false);
 });
 
+test('custom: note templates keep line breaks', () => {
+  const r = parseCustom(
+    { mapping: { note: { template: 'Generations: {g}/{t}\nLeft: {l}', values: { g: 'g', t: 't', l: 'l' } } } },
+    { g: 5903, t: 9000, l: 3097 }
+  );
+  assert.equal(r.noteText, 'Generations: 5903/9000\nLeft: 3097');
+});
+
 test('custom: buildCustomProvider declares the API key only when auth is used', () => {
   const base = { id: 'custom_x', name: 'X', keyName: 'custom_xApiKey' };
   assert.deepEqual(buildCustomProvider({ ...base, auth: 'bearer' }).settings, [{ key: 'custom_xApiKey', type: 'secret' }]);

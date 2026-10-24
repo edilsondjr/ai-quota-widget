@@ -102,7 +102,7 @@ body { padding: 8px; }
 .fill.bad { background: var(--bad); }
 .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-.note { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.note { font-size: 11.5px; color: var(--muted); margin-top: 6px; white-space: pre-line; }
 .err { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .err b { color: var(--warn); font-weight: 600; }
 .actions { margin-top: 6px; display: flex; gap: 12px; }
@@ -174,6 +174,7 @@ body { padding: 8px; }
 .custom-tools .btn { padding: 4px 10px; font-size: 12px; }
 .guided { display: flex; flex-direction: column; }
 .guided .fld textarea { min-height: 64px; }
+.guided .fld textarea.note-template { font: inherit; min-height: 54px; }
 .guided-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .guided-row { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: rgba(255, 255, 255, 0.02); }
 .guided-row .fld { margin-bottom: 6px; }
