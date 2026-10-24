@@ -13,7 +13,7 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "dev.edilson.quotawidget",
+    "appId": "com.beamglyph.quotawidget",
     "productName": "Quota Widget",
     "files": [
       "main.js",
@@ -47,6 +47,11 @@
       "artifactName": "Quota-Widget-Setup-${version}.${ext}"
     }
   },
+  "author": {
+    "name": "BeamGlyph",
+    "url": "https://www.beamglyph.com"
+  },
+  "homepage": "https://github.com/edilsondjr/ai-quota-widget",
   "license": "MIT",
   "keywords": [
     "widget",

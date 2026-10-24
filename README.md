@@ -62,4 +62,4 @@ Issues and pull requests are welcome, especially fixes when an endpoint changes.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Made by [BeamGlyph](https://www.beamglyph.com).
