@@ -79,7 +79,7 @@ Notes:
 
 ## Custom providers
 
-If a service is not built in, add it in **Settings → Custom providers → Add custom provider**. New providers open in the guided form: name, URL, method, auth, optional headers/body, one or more usage windows, note values and a plan path. Use **Add window** / **Add note value** for providers with multiple limits. Use **Template** to start from usage, balance or monthly cost, and **Copy JSON** / **Load JSON** to move a spec between machines. The API key is never included in the copied spec.
+If a service is not built in, add it in **Settings → Custom providers → Add custom provider**. New providers open in the guided form: name, URL, method, auth, optional headers/body, one or more usage windows, note values and a plan path. Use **Add window** / **Add note value** for providers with multiple limits. Use **Template** to pick a starting point, then **Apply template** to replace the mapping (windows, note values and plan); the name, URL, auth, headers, body and API key stay unchanged. Changing the selection alone does not touch the form. Use **Copy JSON** / **Load JSON** to move a spec between machines. The API key is never included in the copied spec.
 
 **JSON** remains available for exact editing. Use **Test** before saving to fetch the URL and preview the parsed windows/note, or see the error; Test does not create the provider.
 

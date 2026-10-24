@@ -96,6 +96,20 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
 
   // Add again using the guided form; the local server handles the test request.
   await add.click();
+  await page.getByLabel('Name', { exact: true }).fill('Keep me');
+  await page.locator('#custom-template').selectOption('balance');
+  assert.equal(await page.getByLabel('Name', { exact: true }).inputValue(), 'Keep me');
+  assert.equal(await page.locator('#custom-note-template').inputValue(), '');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('#custom-template-apply').click();
+  assert.equal(await page.getByLabel('Name', { exact: true }).inputValue(), 'Keep me');
+  assert.equal(await page.getByLabel('URL', { exact: true }).inputValue(), 'https://api.example.com/usage');
+  assert.equal(await page.locator('#custom-note-template').inputValue(), 'Balance: {amount}');
+  assert.equal(await page.locator('#custom-window-0-key').count(), 0);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('#custom-template').selectOption('usage');
+  await page.locator('#custom-template-apply').click();
+  assert.equal(await page.locator('#custom-window-0-key').inputValue(), 'month');
   await page.getByRole('button', { name: 'Expression help', exact: true }).click();
   await page.getByText('Safe expressions', { exact: true }).waitFor();
   await page.getByText('=Math.round(data.subscription.generations)', { exact: true }).waitFor();

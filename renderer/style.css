@@ -164,6 +164,9 @@ body { padding: 8px; }
 .mode-row { display: flex; gap: 6px; margin: 8px 0 4px; }
 .mode-row .btn { padding: 4px 10px; font-size: 12px; }
 .mode-row .btn.on { color: var(--accent); border-color: var(--accent); background: rgba(122, 162, 255, 0.12); }
+.template-row { display: flex; align-items: stretch; gap: 6px; }
+.template-row select { flex: 1; min-width: 0; }
+.template-row .btn { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
 .help-btn { width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
 .help-btn:hover { text-decoration: none; background: var(--track); color: var(--text); }
 .help-panel { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 8px 0; background: rgba(255, 255, 255, 0.03); user-select: text; }

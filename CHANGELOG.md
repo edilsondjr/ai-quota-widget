@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.10.2
+
+### Fixed
+
+- Changing the custom-provider Template dropdown no longer resets the form. Use the explicit **Apply template** button (with confirmation) to replace only the mapping (windows, note values and plan); name, URL, auth, headers, body and the API key stay unchanged.
+
 ## 0.10.1
 
 ### Fixed

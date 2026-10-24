@@ -511,7 +511,6 @@ function customScreen(target) {
   }
   const initial = window.customSpec.toGuided(editable);
   let mode = 'guided';
-  let previousTemplate = 'usage';
 
   const modeRow = el('div', 'mode-row');
   const guidedBtn = el('button', 'btn', t('s.custom_guided'));
@@ -550,13 +549,19 @@ function customScreen(target) {
   };
 
   const templateSel = document.createElement('select');
+  templateSel.id = 'custom-template';
   for (const [key, label] of [['usage', t('s.custom_template_usage')], ['balance', t('s.custom_template_balance')], ['cost', t('s.custom_template_cost')]]) {
     const option = el('option', null, label);
     option.value = key;
     option.selected = key === 'usage';
     templateSel.append(option);
   }
-  form.append(field(t('s.custom_template'), templateSel));
+  const applyTemplate = el('button', 'btn', t('s.custom_template_apply'));
+  applyTemplate.type = 'button';
+  applyTemplate.id = 'custom-template-apply';
+  const templateRow = el('div', 'template-row');
+  templateRow.append(templateSel, applyTemplate);
+  form.append(field(t('s.custom_template'), templateRow));
 
   const tools = el('div', 'custom-tools');
   const copy = el('button', 'btn', t('s.custom_copy'));
@@ -822,9 +827,11 @@ function customScreen(target) {
     }
     windowsBox.replaceChildren();
     windows.splice(0);
+    windowSeq = -1;
     for (const w of guided.windows || []) addWindow(w);
     noteBox.replaceChildren();
     noteValues.splice(0);
+    noteSeq = -1;
     for (const v of guided.noteValues || []) addNoteValue(v);
     if (!noteValues.length) addNoteValue({ name: 'amount' });
     refreshConditional();
@@ -939,18 +946,28 @@ function customScreen(target) {
   guidedBtn.onclick = () => setMode('guided');
   jsonBtn.onclick = () => setMode('json');
 
-  templateSel.onchange = () => {
+  applyTemplate.onclick = () => {
     const key = templateSel.value;
-    if (!confirm(t('s.custom_template_confirm'))) {
-      templateSel.value = previousTemplate;
+    if (!confirm(t('s.custom_template_confirm'))) return;
+    let current;
+    try {
+      current = window.customSpec.toGuided(JSON.parse(specInput.value)).guided;
+    } catch (e) {
+      showError(t('s.custom_invalid', { error: e && e.message ? e.message : String(e) }));
       return;
     }
-    previousTemplate = key;
     const template = JSON.parse(JSON.stringify(window.customSpec.TEMPLATES[key]));
-    specInput.value = JSON.stringify(template, null, 2);
     const info = window.customSpec.toGuided(template);
-    populateGuided(info.guided);
-    if (mode === 'guided') syncGuided();
+    const merged = {
+      ...current,
+      windows: info.guided.windows,
+      noteTemplate: info.guided.noteTemplate,
+      noteValues: info.guided.noteValues,
+      plan: info.guided.plan,
+    };
+    populateGuided(merged);
+    syncGuided();
+    err.hidden = true;
     testBox.hidden = true;
     fitWindow();
   };
