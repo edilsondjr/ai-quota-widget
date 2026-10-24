@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { PROVIDERS, collect, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
@@ -25,13 +25,40 @@ const state = { providers: {}, updatedAt: null, loading: false, pinned: true, ve
 
 const cfgPath = () => path.join(app.getPath('userData'), 'config.json');
 
+// Chaves de API ficam criptografadas em disco (safeStorage = DPAPI no Windows, atrelada ao usuário).
+// Em memória (cfg) seguem em texto puro; no arquivo vão em `secrets` como base64.
+const SECRET_KEYS = ['ollamaApiKey', 'commandcodeApiKey'];
+const canEncrypt = () => safeStorage.isEncryptionAvailable();
+
+function readSecrets(raw) {
+  const out = {};
+  const enc = raw.secrets && typeof raw.secrets === 'object' ? raw.secrets : {};
+  for (const k of SECRET_KEYS) {
+    if (typeof enc[k] === 'string' && enc[k] && canEncrypt()) {
+      try {
+        out[k] = safeStorage.decryptString(Buffer.from(enc[k], 'base64'));
+      } catch (_) {
+        out[k] = ''; // criptografado por outro usuário/máquina: precisa digitar de novo
+      }
+    } else if (typeof raw[k] === 'string' && raw[k]) {
+      out[k] = raw[k]; // config antigo em texto puro: migrado no próximo saveCfg
+    }
+  }
+  return out;
+}
+
 function loadCfg() {
+  let needsSave = false;
   try {
-    cfg = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(cfgPath(), 'utf8')) };
+    const raw = JSON.parse(fs.readFileSync(cfgPath(), 'utf8'));
+    cfg = { ...DEFAULTS, ...raw, ...readSecrets(raw) };
+    delete cfg.secrets;
+    needsSave = canEncrypt() && SECRET_KEYS.some((k) => typeof raw[k] === 'string' && raw[k]);
   } catch (_) {
     cfg = { ...DEFAULTS };
-    saveCfg();
+    needsSave = true;
   }
+  if (needsSave) saveCfg();
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
   state.pinned = !!cfg.pinned;
@@ -56,7 +83,15 @@ function publicConfig() {
 function saveCfg() {
   try {
     fs.mkdirSync(path.dirname(cfgPath()), { recursive: true });
-    fs.writeFileSync(cfgPath(), JSON.stringify(cfg, null, 2));
+    const out = { ...cfg };
+    if (canEncrypt()) {
+      out.secrets = {};
+      for (const k of SECRET_KEYS) {
+        if (cfg[k]) out.secrets[k] = safeStorage.encryptString(cfg[k]).toString('base64');
+        out[k] = '';
+      }
+    }
+    fs.writeFileSync(cfgPath(), JSON.stringify(out, null, 2));
   } catch (_) {}
 }
 
