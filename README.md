@@ -4,7 +4,7 @@ A small always-on-top Windows widget that shows your AI usage quotas across prov
 
 Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Ollama**. Adding a provider is a single file, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> Português: veja a seção [Leia-me (pt-BR)](#leia-me-pt-br) no final. · Español: consulta la sección [Léame (es)](#léame-es) al final.
+> Also available in: [Português (pt-BR)](docs/README.pt-BR.md) · [Español](docs/README.es.md)
 
 <p align="center"><img src="docs/screenshot.png" alt="Quota Widget showing Claude, ChatGPT, Command Code and Ollama usage bars" width="382"></p>
 
@@ -63,25 +63,3 @@ Issues and pull requests are welcome, especially fixes when an endpoint changes.
 ## License
 
 [MIT](LICENSE)
-
----
-
-## Leia-me (pt-BR)
-
-Widget flutuante para Windows que reúne as quotas de uso das suas IAs em um só lugar, com barras e contagem regressiva até a renovação. Hoje suporta **Claude**, **ChatGPT (Codex)**, **Command Code** e **Ollama**, e novos provedores são bem-vindos.
-
-- **Instalar:** baixe o `Quota-Widget-Setup-<versão>.exe` na página de [Releases](../../releases). O instalador não é assinado, então o SmartScreen pode avisar; clique em "Mais informações" e "Executar assim mesmo".
-- **Configurar:** clique no ⚙ do widget para escolher o que aparece, o intervalo de atualização, as chaves de API (guardadas criptografadas pelo Windows), o idioma (English/Português) e o início com o Windows.
-- **Gerar do código:** `npm install` e `npm run dist` (Node 20+, no Windows).
-- **Aviso:** as rotas usadas não são oficiais e podem mudar. Use apenas com as suas próprias contas e por sua conta e risco.
-
----
-
-## Léame (es)
-
-Widget flotante para Windows que reúne las cuotas de uso de tus IA en un solo lugar, con barras y cuenta regresiva hasta la renovación. Soporta **Claude**, **ChatGPT (Codex)**, **Command Code** y **Ollama**, y se aceptan nuevos proveedores.
-
-- **Instalar:** descarga `Quota-Widget-Setup-<versión>.exe` desde la página de [Releases](../../releases). El instalador no está firmado, así que SmartScreen puede avisar; haz clic en "Más información" y "Ejecutar de todas formas".
-- **Configurar:** haz clic en ⚙ en el widget para elegir qué se muestra, el intervalo de actualización, las claves de API (se guardan cifradas por Windows), el idioma (English/Português/Español) y el inicio con Windows.
-- **Compilar desde el código:** `npm install` y `npm run dist` (Node 20+, en Windows).
-- **Aviso:** las rutas usadas no son oficiales y pueden cambiar. Úsalo solo con tus propias cuentas y bajo tu propio riesgo.
