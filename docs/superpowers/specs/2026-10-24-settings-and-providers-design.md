@@ -107,3 +107,37 @@ Balance-only providers return `windows: []` plus a note, so the card shows a bal
 ## Left to the builder
 
 Visual details of the settings screens within the existing style, exact wording of strings (en-US first, then es and pt-BR), and the internal structure of the generic settings code.
+
+## Update (2026-10-24)
+
+- Browser sign-in is limited to Claude and ChatGPT. Ollama is now API-key-only; its settings-page fallback and login window were removed.
+- API keys are never written to `config.json` in plain text. Only encrypted blobs (`safeStorage`) are stored; if encryption is unavailable, secrets are not persisted at all.
+- All local data lives under `~/.quotawidget/`: `config.json` at the root and the provider sign-in profiles under `profiles/`. The old Electron userData folder (`%APPDATA%/quota-widget` on Windows) is migrated once, and any plaintext keys left there are removed.
+- Command Code is API-key-only; the local `~/.commandcode/auth.json` fallback was removed.
+
+## Additional providers (2026-10-24)
+
+OpenRouter and DeepSeek were already present. Added:
+
+| Provider | Request | Notes |
+|---|---|---|
+| Synthetic | `GET https://api.synthetic.new/v2/quotas` | Subscription requests / limit, resets from `renewsAt`. |
+| NanoGPT | `GET https://nano-gpt.com/api/management/v1/subscription/usage` | Usage-only management token. Daily/weekly input tokens and daily images. |
+| OpenAI API | `GET https://api.openai.com/v1/organization/costs` | Admin key. Monthly cost, summed by currency. |
+| Anthropic API | `GET https://api.anthropic.com/v1/organizations/cost_report` | Admin key. Monthly cost; the API returns cents, converted to dollars. |
+| xAI (Grok) | `POST https://management-api.x.ai/v1/billing/teams/{team_id}/usage` | Management key + team ID. Monthly API spend in USD. |
+| Mistral | `GET https://api.mistral.ai/v1/billing/usage` + `/v1/billing/subscription` | Billing access. The documented `/v1/admin/usage` response is a raw usage/price catalog without a simple total, so the billing endpoints power the card. |
+| OpenCode Go | `GET https://opencode.ai/zen/go/v1/usage` | Console endpoint, Go plans only; not yet in the public Go docs. Rolling/weekly/monthly windows. |
+
+Cost-only providers return `windows: []` plus a `note.cost_month` line. The new providers follow the same `settings` declarations and are disabled by default.
+
+## Custom providers (2026-10-24)
+
+Settings → Custom providers lets users add a provider without code. Each spec is stored in `config.json` and declares:
+
+- `name`, `url`, `method` (`GET`/`POST`), `auth` (`bearer`, `header`, `none`), optional `headers`, and an optional JSON `body`;
+- `mapping.windows` (`key`, optional `label`, `percent` path, `scale` (`percent`/`fraction`), optional `resetsAt` and `detail` paths), an optional note (`template` + `values` paths), and an optional `plan` path.
+
+The main process validates the spec (HTTPS or localhost, max size, unique window keys, JSON body for POST) and fetches it with a 15-second timeout. Responses are mapped with dot/bracket paths; no arbitrary code is evaluated. The API key is a declared secret field and is encrypted; the rest of the spec is stored as-is, so secrets belong only in the key field. The editor opens new providers in a guided form for the common single-window/note case (name, URL, auth, headers/body, one window, note and plan) and switches to JSON for complex specs. It also offers usage/balance/monthly-cost templates and Copy JSON / Load JSON; copied specs never include the API key. The editor has a **Test** action that runs the same request without saving and previews the parsed result or error.
+
+Refreshes run with a concurrency limit. A failed update keeps the last successful reading (marked stale) instead of blanking the card. Config writes are atomic and carry a `configVersion` for future migrations.

@@ -2,7 +2,7 @@
 
 A small always-on-top Windows widget that shows your AI usage quotas across providers in one place. One bar per usage window, with a countdown to the next reset.
 
-Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Ollama**. Adding a provider is a single file, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama**, **OpenRouter**, **DeepSeek**, **Moonshot (Kimi)**, **GitHub Copilot**, **Synthetic**, **NanoGPT**, **OpenAI API**, **Anthropic API**, **xAI (Grok)**, **Mistral** and **OpenCode Go**. Adding a provider is a single file, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > Also available in: [Português (pt-BR)](docs/README.pt-BR.md) · [Español](docs/README.es.md)
 
@@ -11,9 +11,9 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Oll
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: choose which services and which windows are shown, set the refresh interval, enter API keys, pick the language (English, Português or Español), and toggle always-on-top and start with Windows.
+- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows and key fields; plus refresh interval, language, always-on-top, start with Windows and custom providers (guided form or JSON spec, templates and import/export).
 - System tray icon; the window remembers its position.
-- Everything runs locally. Logins live in isolated Electron sessions on your machine, and API keys are stored encrypted with Windows (Electron `safeStorage`, tied to your Windows user) in a local `config.json`. Nothing is sent anywhere except to the services themselves.
+- Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json` and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the keys in plain text. Nothing is sent anywhere except to the services themselves.
 
 ## Install
 
@@ -37,28 +37,80 @@ The build also leaves a ready-to-run copy in `dist/win-unpacked/`. More detail, 
 
 ## Where the data comes from
 
-None of these services offers an official quota API for subscriptions, so the widget reads the same endpoints their own sites and CLIs use. **They are undocumented and can change or break at any time.**
+Most of these services do not offer an official quota API for subscriptions, so the widget reads the same endpoints their own sites and CLIs use, or the documented balance APIs where they exist. **They can change or break at any time.**
 
 | Service | Source | Auth |
 |---|---|---|
 | Claude | `claude.ai/api/organizations/<org>/usage` | Sign in once via the **Sign in** button |
 | ChatGPT | `chatgpt.com/backend-api/wham/usage` (same route the Codex CLI uses) | Sign in via the button |
-| Ollama | `ollama.com/api/usage` (API key, monthly USD credit) or the settings page | API key in Settings, or sign in |
-| Command Code | `api.commandcode.ai/alpha/billing/credits` | Reads `~/.commandcode/auth.json` (run `cmd login`) or an API key in Settings |
+| Ollama | `ollama.com/api/usage` (API key, monthly USD credit) | API key in Settings |
+| Command Code | `api.commandcode.ai/alpha/billing/credits` + `/alpha/usage/summary` + `/alpha/billing/subscriptions` | API key in Settings |
+| OpenRouter | `openrouter.ai/api/v1/key` (documented) | API key in Settings |
+| DeepSeek | `api.deepseek.com/user/balance` (documented) | API key in Settings |
+| Moonshot (Kimi) | `api.moonshot.ai/v1/users/me/balance` (documented) | API key in Settings |
+| GitHub Copilot | `api.github.com/users/<user>/settings/billing/premium_request/usage` (documented) | Token, username and monthly allowance in Settings |
+| Synthetic | `api.synthetic.new/v2/quotas` (documented) | API key in Settings |
+| NanoGPT | `nano-gpt.com/api/management/v1/subscription/usage` (documented) | Usage-only management token in Settings |
+| OpenAI API | `api.openai.com/v1/organization/costs` (documented) | Admin API key in Settings |
+| Anthropic API | `api.anthropic.com/v1/organizations/cost_report` (documented) | Admin API key in Settings |
+| xAI (Grok) | `management-api.x.ai/v1/billing/teams/<team>/usage` (documented) | Management key and team ID in Settings |
+| Mistral | `api.mistral.ai/v1/billing/usage` + `/v1/billing/subscription` | API key with billing access |
+| OpenCode Go | `opencode.ai/zen/go/v1/usage` (console endpoint) | Go API key in Settings |
 
 Each provider lives in its own file under [`providers/`](providers), so a broken endpoint is a one-file fix.
 
 Notes:
 
+- Only **Claude** and **ChatGPT** use browser sign-in. Every other service uses an API key in Settings.
 - Google/Apple sign-in inside an embedded window is often refused by the provider. Use email code/link sign-in instead.
 - Ollama's newer plans meter a monthly USD credit (Pro $60, Max $300), not session/weekly limits. Set the renewal day in Settings if the estimate is off.
 - Unknown internal limits returned by Claude are hidden by default; you can show them in Settings.
+- OpenRouter shows the key's credit limit (with its daily/weekly/monthly reset) and the free-model daily requests; a key with no limit shows the month's spend instead.
+- DeepSeek and Moonshot report a balance, not a percentage, so their cards show a balance line and no bars.
+- GitHub Copilot needs a token that can read your billing data, your username, and the premium-request allowance of your plan (Pro = 300). Licenses managed by an organization or enterprise are not covered by that endpoint.
+- Command Code's monthly window is computed from the billing-period spend (`/alpha/usage/summary?since=currentPeriodStart`) plus the remaining monthly/purchased/free credits, resetting at `currentPeriodEnd` from `/alpha/billing/subscriptions`. The credits endpoint alone has no monthly window.
+- Synthetic, NanoGPT and OpenCode Go show usage windows; OpenAI API, Anthropic API, xAI and Mistral show a monthly cost/usage line instead of bars.
+- Anthropic's cost report returns amounts in cents; the widget converts them to dollars.
+- Mistral uses its billing endpoints (`/v1/billing/usage` and `/v1/billing/subscription`). The documented admin `/v1/admin/usage` response is a raw usage/price catalog without a simple total.
+- OpenCode's `/zen/go/v1/usage` is the endpoint used by its console and covers OpenCode Go plans only; it is not yet in the public Go docs.
+- If an update fails, the card keeps the last successful reading and shows a stale notice instead of going blank on a transient error.
+
+## Custom providers
+
+If a service is not built in, add it in **Settings → Custom providers → Add custom provider**. New providers open in the guided form: name, URL, method, auth, optional headers/body, one usage window, a note and a plan path. Use **Template** to start from usage, balance or monthly cost, and **Copy JSON** / **Load JSON** to move a spec between machines. The API key is never included in the copied spec.
+
+For specs with more than one window or note value, switch to **JSON** and edit the full mapping. Use **Test** before saving to fetch the URL and preview the parsed windows/note, or see the error; Test does not create the provider.
+
+```json
+{
+  "name": "My provider",
+  "url": "https://api.example.com/usage",
+  "method": "GET",
+  "auth": "bearer",
+  "headers": { "Accept": "application/json" },
+  "mapping": {
+    "windows": [
+      { "key": "month", "label": "Month", "percent": "data.used_percent", "resetsAt": "data.reset_at", "detail": "data.detail" }
+    ],
+    "note": { "template": "Balance: {amount}", "values": { "amount": "data.balance" } },
+    "plan": "data.plan"
+  }
+}
+```
+
+- `auth`: `bearer` (default), `header` (set `authHeader` and `authPrefix`), or `none`.
+- `method`: `GET` or `POST`; for `POST`, `body` is a JSON string.
+- Paths use dots; arrays use `items[0].value`. `scale: "fraction"` multiplies the value by 100.
+- Each window needs `key` and `percent`; `label`, `resetsAt` and `detail` are optional.
+- A note template can use `{name}` values resolved from `mapping.note.values`.
+- The provider must return JSON over HTTPS (HTTP is allowed only for localhost); requests time out after 15 seconds.
+- The spec is stored as-is in `~/.quotawidget/config.json`; only the API key field is encrypted. Do not put secrets in `headers` or `body`.
 
 ## Privacy and responsibility
 
-The widget only talks to the four services above, using your own account. It does not collect telemetry. Accessing undocumented endpoints may be against a provider's terms of service; use it at your own risk and only with your own accounts.
+The widget only talks to the services above, using your own account. It does not collect telemetry. Accessing undocumented endpoints may be against a provider's terms of service; use it at your own risk and only with your own accounts.
 
-This project is independent and not affiliated with, endorsed by, or sponsored by Anthropic, OpenAI, Ollama or Command Code. All product names are trademarks of their owners.
+This project is independent and not affiliated with, endorsed by, or sponsored by any of the services listed above. All product names are trademarks of their owners.
 
 ## Contributing
 

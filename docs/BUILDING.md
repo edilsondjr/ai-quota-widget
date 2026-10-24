@@ -23,7 +23,8 @@ Then pick what you want:
 | Goal | Command | Result |
 |---|---|---|
 | Run it right now | `npm start` | Opens the widget from source |
-| Run the tests | `npm test` | Parser and translation tests |
+| Run the tests | `npm test` | Parser, settings and translation tests |
+| Run the UI test | `npm run test:e2e` | Electron smoke test with a local fake provider |
 | Build the installer | `npm run dist` | `dist/Quota-Widget-Setup-<version>.exe` |
 
 `npm run dist` also leaves an unpacked copy of the app in `dist/win-unpacked/`. You can run `Quota Widget.exe` from there without installing anything, or move the folder wherever you like.
