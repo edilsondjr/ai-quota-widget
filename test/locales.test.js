@@ -12,7 +12,7 @@ const locales = Object.fromEntries(
     .filter((f) => f.endsWith('.json'))
     .map((f) => [f.slice(0, -5), JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))])
 );
-const en = locales.en;
+const en = locales['en-US'];
 const params = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 test('english exists and every locale names itself', () => {
@@ -21,11 +21,11 @@ test('english exists and every locale names itself', () => {
 });
 
 for (const [code, l] of Object.entries(locales)) {
-  if (code === 'en') continue;
-  test(`${code}: has exactly the keys of en.json`, () => {
+  if (code === 'en-US') continue;
+  test(`${code}: has exactly the keys of en-US.json`, () => {
     assert.deepEqual(Object.keys(l).sort(), Object.keys(en).sort());
   });
-  test(`${code}: uses the same {placeholders} as en.json`, () => {
+  test(`${code}: uses the same {placeholders} as en-US.json`, () => {
     for (const k of Object.keys(en)) assert.deepEqual(params(l[k]), params(en[k]), k);
   });
 }
@@ -38,7 +38,7 @@ test('every error/note code a provider can return has a translation', () => {
     for (const m of src.matchAll(/\bnote: '(\w+)'/g)) codes.add(`note.${m[1]}`);
   }
   assert.ok(codes.size > 5);
-  for (const c of codes) assert.ok(en[c], `missing ${c} in en.json`);
+  for (const c of codes) assert.ok(en[c], `missing ${c} in en-US.json`);
 });
 
 test('every window key a provider can return has a label', () => {

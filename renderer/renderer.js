@@ -8,13 +8,13 @@ const settings = $('#settings');
 let last = null;
 let inSettings = false;
 let t = (k) => k;
-let lang = 'en';
+let lang = 'en-US';
 
 // Strings come from the main process (locales/*.json) along with the state.
 function applyStrings(state) {
   if (!state.strings) return;
   t = i18n.translator(state.strings);
-  lang = state.lang || 'en';
+  lang = state.lang || 'en-US';
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-i18n]').forEach((n) => (n.textContent = t(n.dataset.i18n)));
   document.querySelectorAll('[data-i18n-title]').forEach((n) => (n.title = t(n.dataset.i18nTitle)));

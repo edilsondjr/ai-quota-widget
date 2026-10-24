@@ -15,12 +15,11 @@ npm start
 - `providers/`: one file per service (`claude.js`, `chatgpt.js`, ...) that fetches and normalizes usage, plus `index.js` (the registry). **Most fixes go here.**
 - `renderer/`: the UI (cards and settings screen). No framework, plain DOM.
 - `preload.js`: the small, explicit bridge between UI and main process.
-
-- `locales/`: UI text, one JSON file per language (`en.json` is the default and the fallback).
+- `locales/`: UI text, one JSON file per language (`en-US.json` is the default and the fallback).
 
 ## Translating
 
-Copy `locales/en.json` to `locales/<code>.json` (e.g. `es.json`), set `_name` to the language's own name, and translate the values. Keys you leave out fall back to English. The new language appears in Settings automatically.
+Copy `locales/en-US.json` to `locales/<code>.json` (e.g. `fr.json`), set `_name` to the language's own name, and translate the values. Keys you leave out fall back to English. The new language appears in Settings automatically.
 
 ## Adding a service
 
@@ -33,7 +32,7 @@ Copy `locales/en.json` to `locales/<code>.json` (e.g. `es.json`), set `_name` to
 npm test
 ```
 
-Uses Node's built-in test runner (no extra dependencies) and runs on every push and pull request. Parser tests read fixtures from `test/fixtures/`. When an endpoint changes, add or update a fixture with an **anonymized** real response (no names, emails, ids, keys or tokens), then fix the parser until the test passes. A locale test also checks that every language has the same keys as `en.json`.
+Uses Node's built-in test runner (no extra dependencies) and runs on every push and pull request. Parser tests read fixtures from `test/fixtures/`. When an endpoint changes, add or update a fixture with an **anonymized** real response (no names, emails, ids, keys or tokens), then fix the parser until the test passes. A locale test also checks that every language has the same keys as `en-US.json`.
 
 ## Ground rules
 

@@ -9,7 +9,7 @@ const LOCALES = {};
 for (const f of fs.readdirSync(path.join(__dirname, 'locales'))) {
   if (f.endsWith('.json')) LOCALES[f.slice(0, -5)] = JSON.parse(fs.readFileSync(path.join(__dirname, 'locales', f), 'utf8'));
 }
-const FALLBACK_LANG = 'en';
+const FALLBACK_LANG = 'en-US';
 let t = translator(LOCALES[FALLBACK_LANG]);
 
 // Before language support, hiddenWindows stored the (Portuguese) window label.
@@ -91,6 +91,7 @@ function loadCfg() {
   for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
     if (Array.isArray(cfg.hiddenWindows[id])) cfg.hiddenWindows[id] = cfg.hiddenWindows[id].map((k) => legacy[k] || k);
   }
+  if (cfg.language === 'en') cfg.language = FALLBACK_LANG; // v0.3.0 stored 'en'
   applyLanguage();
   state.pinned = !!cfg.pinned;
   state.config = publicConfig();

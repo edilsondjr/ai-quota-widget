@@ -3,12 +3,12 @@ setlocal
 cd /d "%~dp0"
 where node >nul 2>nul
 if errorlevel 1 (
-  echo Node.js nao encontrado. Instale o Node 20+ em https://nodejs.org e rode de novo.
+  echo Node.js not found. Install Node 20+ from https://nodejs.org and run this again.
   pause & exit /b 1
 )
-call npm install || (echo Falha no npm install & pause & exit /b 1)
-call npm run dist || (echo Falha ao gerar o instalador & pause & exit /b 1)
+call npm install || (echo npm install failed & pause & exit /b 1)
+call npm run dist || (echo Building the installer failed & pause & exit /b 1)
 echo.
-echo Pronto! O instalador esta na pasta dist\
+echo Done! The installer is in the dist\ folder.
 start "" "%~dp0dist"
 pause
