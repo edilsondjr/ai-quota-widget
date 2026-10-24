@@ -1,0 +1,7 @@
+{
+  "limits": {
+    "session": { "usage": 0.213, "resets_at": "2030-01-01T10:00:00Z" },
+    "weekly": { "usage": 0.5, "resets_at": "2030-01-05T10:00:00Z" }
+  },
+  "activity": { "requests": 12 }
+}

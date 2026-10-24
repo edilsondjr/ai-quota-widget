@@ -1,0 +1,7 @@
+{
+  "buckets": [
+    { "from": "2030-01-02T00:00:00Z", "usage_usd": 5, "request_count": 10 },
+    { "from": "2030-01-09T00:00:00Z", "usage_usd": 7.25, "request_count": 20 },
+    { "from": "2030-01-14T00:00:00Z", "usage_usd": 3, "request_count": 5 }
+  ]
+}
