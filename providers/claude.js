@@ -60,6 +60,7 @@ module.exports = {
   id: 'claude',
   name: 'Claude',
   loginUrl: 'https://claude.ai/login',
+  settings: [{ key: 'claudeShowUnknown', type: 'boolean' }],
   run,
   reset: () => (org = null),
   parseOrgs,

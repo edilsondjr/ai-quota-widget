@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "date": "2030-01-01",
+      "total_cost": 12.5,
+      "input_tokens": 1000,
+      "output_tokens": 200
+    },
+    {
+      "date": "2030-01-02",
+      "total_cost": 2.5,
+      "input_tokens": 500,
+      "output_tokens": 100
+    }
+  ]
+}

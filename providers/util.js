@@ -21,4 +21,14 @@ function parseJson(r) {
 
 const isCloudflare = (t) => /just a moment|cf-chl|challenge-platform/i.test(t || '');
 
-module.exports = { num, toMs, parseJson, isCloudflare };
+// Currency for cost/balance notes, e.g. money('USD', 1.5) -> "$1.50".
+const money = (currency, value) => {
+  const code = String(currency || 'USD').toUpperCase();
+  const n = num(value);
+  const amount = (n == null ? 0 : n).toFixed(2);
+  if (code === 'USD') return `$${amount}`;
+  if (code === 'EUR') return `€${amount}`;
+  return `${code} ${amount}`;
+};
+
+module.exports = { num, toMs, parseJson, isCloudflare, money };

@@ -1,8 +1,42 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage, clipboard } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { PROVIDERS, collect, release, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
+const { getProviders, setCustomProviders, collect, release, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
+const { fields: settingFields, secretKeys: secretKeysFor, meta: settingsMeta, coerce, configForDisk } = require('./providers/settings');
+const { buildCustomProvider, normalizeSpec, runCustom } = require('./providers/custom');
+const { mergeReading } = require('./providers/readings');
 const { translator } = require('./renderer/i18n');
+const { prepareDataDir, sanitizeLegacyConfig, writeJsonAtomic } = require('./app-data');
+
+// The provider list = built-ins + user-defined custom providers from config.
+// SETTING_FIELDS/SECRET_KEYS are rebuilt whenever the custom list changes.
+let SETTING_FIELDS = [];
+let SECRET_KEYS = [];
+function rebuildRegistry(specs) {
+  setCustomProviders((Array.isArray(specs) ? specs : []).map(buildCustomProvider).filter(Boolean));
+  const list = getProviders();
+  SETTING_FIELDS = settingFields(list);
+  SECRET_KEYS = secretKeysFor(list);
+  return list;
+}
+rebuildRegistry([]);
+
+// Everything the app writes lives under ~/.quotawidget: config.json at the root and
+// the per-provider sign-in profiles under profiles/. The old Electron userData folder
+// (%APPDATA%/quota-widget on Windows) is migrated once, before any session is created.
+// QUOTAWIDGET_HOME/QUOTAWIDGET_LEGACY_DIR are test-only overrides used by the Electron
+// E2E test so it never touches real user data.
+const DATA_HOME = process.env.QUOTAWIDGET_HOME || os.homedir();
+const LEGACY_DATA_DIR = process.env.QUOTAWIDGET_LEGACY_DIR || app.getPath('userData');
+try {
+  const paths = prepareDataDir(DATA_HOME, LEGACY_DATA_DIR);
+  if (!paths.ok) console.warn('Some legacy data could not be migrated:', paths.errors.join('; '));
+  app.setPath('userData', paths.dataDir);
+  app.setPath('sessionData', paths.profilesDir);
+} catch (e) {
+  console.warn('Could not use ~/.quotawidget, falling back to the default userData:', e && e.message ? e.message : e);
+}
 
 // Languages = files in locales/. To add one, just drop <code>.json in there.
 const LOCALES = {};
@@ -21,14 +55,33 @@ const LEGACY_WINDOW_KEYS = {
 };
 
 const WIDTH = 336;
+const CONFIG_VERSION = 1;
 const DEFAULTS = {
+  configVersion: CONFIG_VERSION,
   language: FALLBACK_LANG,
   intervalMin: 5,
   pinned: true,
   ollamaApiKey: '',
   commandcodeApiKey: '',
+  customProviders: [],
   bounds: null,
-  enabled: { claude: true, chatgpt: true, commandcode: true, ollama: true },
+  enabled: {
+    claude: true,
+    chatgpt: true,
+    commandcode: true,
+    ollama: true,
+    openrouter: false,
+    deepseek: false,
+    moonshot: false,
+    copilot: false,
+    synthetic: false,
+    nanogpt: false,
+    openai: false,
+    anthropic: false,
+    xai: false,
+    mistral: false,
+    opencode: false,
+  },
   hiddenWindows: {},
   ollamaBillingDay: null,
   ollamaMonthlyCredits: null,
@@ -39,7 +92,7 @@ let win = null;
 let tray = null;
 let timer = null;
 let cfg = { ...DEFAULTS };
-const state = { providers: {}, updatedAt: null, loading: false, pinned: true, version: '', config: {}, lang: FALLBACK_LANG, strings: {}, languages: [] };
+const state = { providers: {}, updatedAt: null, loading: false, pinned: true, version: '', config: {}, lang: FALLBACK_LANG, strings: {}, languages: [], providerMeta: [] };
 
 function applyLanguage() {
   if (!LOCALES[cfg.language]) cfg.language = FALLBACK_LANG;
@@ -53,8 +106,8 @@ function applyLanguage() {
 const cfgPath = () => path.join(app.getPath('userData'), 'config.json');
 
 // API keys are encrypted on disk (safeStorage = DPAPI on Windows, tied to the user).
-// In memory (cfg) they stay plain text; in the file they go under `secrets` as base64.
-const SECRET_KEYS = ['ollamaApiKey', 'commandcodeApiKey'];
+// In memory (cfg) they stay plain text; on disk only `secrets` holds base64 blobs.
+// If safeStorage is unavailable, secrets are not written at all (never plain text).
 const canEncrypt = () => safeStorage.isEncryptionAvailable();
 
 function readSecrets(raw) {
@@ -76,16 +129,34 @@ function readSecrets(raw) {
 
 function loadCfg() {
   let needsSave = false;
+  const newPath = cfgPath();
+  const legacyPath = path.join(LEGACY_DATA_DIR, 'config.json');
+  const fromLegacy = !fs.existsSync(newPath) && fs.existsSync(legacyPath);
+  let raw = null;
   try {
-    const raw = JSON.parse(fs.readFileSync(cfgPath(), 'utf8'));
+    raw = JSON.parse(fs.readFileSync(fromLegacy ? legacyPath : newPath, 'utf8'));
+  } catch (_) {}
+
+  // Custom providers must be registered before readSecrets, since their API keys
+  // are part of the dynamic secret list.
+  const list = rebuildRegistry(raw && raw.customProviders);
+  if (raw) {
     cfg = { ...DEFAULTS, ...raw, ...readSecrets(raw) };
     delete cfg.secrets;
-    needsSave = canEncrypt() && SECRET_KEYS.some((k) => typeof raw[k] === 'string' && raw[k]);
-  } catch (_) {
+    needsSave = fromLegacy || raw.configVersion !== CONFIG_VERSION || SECRET_KEYS.some((k) => typeof raw[k] === 'string' && raw[k]);
+  } else {
     cfg = { ...DEFAULTS };
     needsSave = true;
   }
+  cfg.customProviders = Array.isArray(cfg.customProviders) ? cfg.customProviders : [];
   if (needsSave) saveCfg();
+  // The new config only ever gets written by saveCfg (encrypted). Once it exists,
+  // remove any plaintext keys left in the old location.
+  if (legacyPath !== newPath && fs.existsSync(newPath) && fs.existsSync(legacyPath)) {
+    try {
+      sanitizeLegacyConfig(legacyPath, SECRET_KEYS);
+    } catch (_) {}
+  }
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
   for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
@@ -95,6 +166,7 @@ function loadCfg() {
   applyLanguage();
   state.pinned = !!cfg.pinned;
   state.config = publicConfig();
+  state.providerMeta = settingsMeta(list, cfg);
 }
 
 // Config sent to the UI: never includes the API keys, only whether they exist.
@@ -104,27 +176,19 @@ function publicConfig() {
     intervalMin: cfg.intervalMin,
     enabled: cfg.enabled,
     hiddenWindows: cfg.hiddenWindows,
-    ollamaBillingDay: cfg.ollamaBillingDay,
-    ollamaMonthlyCredits: cfg.ollamaMonthlyCredits,
-    claudeShowUnknown: !!cfg.claudeShowUnknown,
-    hasOllamaKey: !!cfg.ollamaApiKey,
-    hasCommandcodeKey: !!cfg.commandcodeApiKey,
+    customProviders: cfg.customProviders,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
   };
 }
 
 function saveCfg() {
   try {
-    fs.mkdirSync(path.dirname(cfgPath()), { recursive: true });
-    const out = { ...cfg };
-    if (canEncrypt()) {
-      out.secrets = {};
-      for (const k of SECRET_KEYS) {
-        if (cfg[k]) out.secrets[k] = safeStorage.encryptString(cfg[k]).toString('base64');
-        out[k] = '';
-      }
+    const encrypt = canEncrypt() ? (v) => safeStorage.encryptString(v).toString('base64') : null;
+    if (!encrypt && SECRET_KEYS.some((k) => cfg[k])) {
+      console.warn('safeStorage unavailable: API keys will not be written to disk');
     }
-    fs.writeFileSync(cfgPath(), JSON.stringify(out, null, 2));
+    const out = configForDisk(cfg, SECRET_KEYS, encrypt);
+    writeJsonAtomic(cfgPath(), out);
   } catch (_) {}
 }
 
@@ -133,16 +197,22 @@ function push() {
 }
 
 async function refresh(ids) {
-  const all = PROVIDERS.map((p) => p.id).filter((id) => cfg.enabled[id] !== false);
+  const all = getProviders().map((p) => p.id).filter((id) => cfg.enabled[id] !== false);
   const list = ids && ids.length ? ids.filter((id) => all.includes(id)) : all;
   state.loading = true;
   push();
-  await Promise.allSettled(
-    list.map(async (id) => {
-      state.providers[id] = await collect(id, cfg);
+
+  const queue = [...list];
+  const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      const next = await collect(id, cfg);
+      state.providers[id] = mergeReading(state.providers[id], next);
       push();
-    })
-  );
+    }
+  });
+  await Promise.all(workers);
+
   state.loading = false;
   state.updatedAt = Date.now();
   push();
@@ -276,7 +346,7 @@ function buildTrayMenu() {
 }
 
 function openLogin(id) {
-  const p = PROVIDERS.find((x) => x.id === id);
+  const p = getProviders().find((x) => x.id === id);
   if (!p || !p.loginUrl) return;
   cleanUA(id);
   const w = new BrowserWindow({
@@ -293,6 +363,77 @@ function openLogin(id) {
   });
 }
 
+// ---------- custom providers ----------
+function saveCustomProvider(input) {
+  if (!input || typeof input !== 'object') return { ok: false, error: 'Invalid payload' };
+  const normalized = normalizeSpec(input.spec);
+  if (!normalized.ok) return normalized;
+
+  const specs = Array.isArray(cfg.customProviders) ? [...cfg.customProviders] : [];
+  const index = input.id ? specs.findIndex((s) => s.id === input.id) : -1;
+  if (input.id && index < 0) return { ok: false, error: 'Custom provider not found' };
+
+  const existing = index >= 0 ? specs[index] : null;
+  const id = existing ? existing.id : `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const keyName = existing && existing.keyName ? existing.keyName : `${id}ApiKey`;
+  const spec = { ...normalized.spec, id, keyName };
+  if (index >= 0) specs[index] = spec;
+  else specs.push(spec);
+  cfg.customProviders = specs;
+
+  if (spec.auth === 'none') {
+    delete cfg[keyName];
+  } else {
+    if (typeof input.apiKey === 'string' && input.apiKey.trim()) cfg[keyName] = input.apiKey.trim();
+    if (input.clearKey) delete cfg[keyName];
+  }
+
+  cfg.enabled[id] = index >= 0 ? cfg.enabled[id] !== false : true;
+
+  const list = rebuildRegistry(specs);
+  state.config = publicConfig();
+  state.providerMeta = settingsMeta(list, cfg);
+  saveCfg();
+  push();
+  return { ok: true, id };
+}
+
+function deleteCustomProvider(id) {
+  const specs = Array.isArray(cfg.customProviders) ? cfg.customProviders : [];
+  const spec = specs.find((s) => s.id === id);
+  if (!spec) return { ok: false, error: 'Custom provider not found' };
+  cfg.customProviders = specs.filter((s) => s.id !== id);
+  if (spec.keyName) delete cfg[spec.keyName];
+  delete cfg.enabled[id];
+  delete cfg.hiddenWindows[id];
+  delete state.providers[id];
+  const list = rebuildRegistry(cfg.customProviders);
+  state.config = publicConfig();
+  state.providerMeta = settingsMeta(list, cfg);
+  saveCfg();
+  push();
+  return { ok: true };
+}
+
+async function testCustomProvider(input) {
+  if (!input || typeof input !== 'object') return { ok: false, error: 'Invalid payload' };
+  const normalized = normalizeSpec(input.spec);
+  if (!normalized.ok) return normalized;
+
+  const specs = Array.isArray(cfg.customProviders) ? cfg.customProviders : [];
+  const existing = input.id ? specs.find((s) => s.id === input.id) : null;
+  const keyName = existing && existing.keyName ? existing.keyName : '__custom_test_key__';
+  const typed = typeof input.apiKey === 'string' && input.apiKey.trim() ? input.apiKey.trim() : '';
+  const key = input.clearKey ? '' : typed || (existing ? cfg[keyName] : '');
+  const testCfg = { ...cfg, [keyName]: key };
+  const spec = { ...normalized.spec, id: existing ? existing.id : '__custom_test__', keyName };
+  if (spec.auth === 'none') delete testCfg[keyName];
+
+  const result = await runCustom(spec, testCfg);
+  if (result.action || result.error) return { ok: false, ...result };
+  return { ok: true, ...result };
+}
+
 // ---------- IPC ----------
 ipcMain.handle('state', () => state);
 ipcMain.handle('refresh', (_e, id) => refresh(id ? [id] : undefined));
@@ -305,6 +446,20 @@ ipcMain.handle('logout', async (_e, id) => {
 ipcMain.handle('open-config', async () => {
   if (!fs.existsSync(cfgPath())) saveCfg();
   shell.showItemInFolder(cfgPath());
+});
+ipcMain.handle('save-custom-provider', async (_e, input) => {
+  const result = saveCustomProvider(input);
+  if (result.ok) await refresh();
+  return result;
+});
+ipcMain.handle('test-custom-provider', (_e, input) => testCustomProvider(input));
+ipcMain.handle('copy-text', (_e, text) => {
+  if (typeof text === 'string') clipboard.writeText(text);
+});
+ipcMain.handle('delete-custom-provider', async (_e, id) => {
+  const result = deleteCustomProvider(id);
+  if (result.ok) await refresh();
+  return result;
 });
 ipcMain.handle('toggle-pin', () => setPinned(!state.pinned));
 ipcMain.handle('set-config', async (_e, patch) => {
@@ -319,7 +474,7 @@ ipcMain.handle('set-config', async (_e, patch) => {
     if (v && v >= 1 && v <= 240) cfg.intervalMin = v;
   }
   if (patch.enabled && typeof patch.enabled === 'object') {
-    for (const p of PROVIDERS) {
+    for (const p of getProviders()) {
       if (!(p.id in patch.enabled)) continue;
       cfg.enabled[p.id] = !!patch.enabled[p.id];
       if (!cfg.enabled[p.id]) {
@@ -331,30 +486,24 @@ ipcMain.handle('set-config', async (_e, patch) => {
   }
   if (patch.hiddenWindows && typeof patch.hiddenWindows === 'object') {
     const clean = {};
-    for (const p of PROVIDERS) {
+    for (const p of getProviders()) {
       const arr = patch.hiddenWindows[p.id];
       if (Array.isArray(arr) && arr.length) clean[p.id] = arr.filter((x) => typeof x === 'string').slice(0, 20);
     }
     cfg.hiddenWindows = clean;
   }
-  if ('ollamaBillingDay' in patch) {
-    const v = num(patch.ollamaBillingDay);
-    cfg.ollamaBillingDay = v && v >= 1 && v <= 31 ? Math.round(v) : null;
-  }
-  if ('ollamaMonthlyCredits' in patch) {
-    const v = num(patch.ollamaMonthlyCredits);
-    cfg.ollamaMonthlyCredits = v && v > 0 ? v : null;
-  }
-  if ('claudeShowUnknown' in patch) cfg.claudeShowUnknown = !!patch.claudeShowUnknown;
-  // keys: only change if present in the patch; an empty string deletes
-  for (const k of ['ollamaApiKey', 'commandcodeApiKey']) {
-    if (typeof patch[k] === 'string') cfg[k] = patch[k].trim();
+  // Provider-declared settings: only known keys are accepted and validated by type.
+  for (const field of SETTING_FIELDS) {
+    if (!(field.key in patch)) continue;
+    const r = coerce(field, patch[field.key]);
+    if (r.ok) cfg[field.key] = r.value;
   }
   if ('openAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.openAtLogin });
   if ('pinned' in patch && !!patch.pinned !== state.pinned) setPinned(!!patch.pinned);
   saveCfg();
   schedule();
   state.config = publicConfig();
+  state.providerMeta = settingsMeta(getProviders(), cfg);
   push();
   buildTrayMenu();
   await refresh();

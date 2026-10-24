@@ -1,5 +1,5 @@
-const { num, toMs, parseJson, isCloudflare } = require('./util');
-const { pageFetch, netFetch } = require('./browser');
+const { num, toMs } = require('./util');
+const { netFetch } = require('./browser');
 
 // Real shape of ollama.com/api/usage: { limits: { session: { usage }, weekly: { usage } }, activity: {...} }
 // "usage" is a fraction (0.213 = 21.3%).
@@ -17,24 +17,6 @@ function parseLimits(j) {
     out.push({ key, percent, resetsAt: rk ? toMs(o[rk]) : null });
   }
   return out;
-}
-
-// Fallback without an API key: reads the signed-in /settings page.
-function parseHtml(html) {
-  const clean = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ');
-  const text = clean.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  const out = [];
-  for (const [re, key] of [[/session/i, 'session'], [/week/i, 'weekly']]) {
-    const i = text.search(re);
-    if (i < 0) continue;
-    const m = text.slice(i, i + 160).match(/(\d+(?:\.\d+)?)\s*%/);
-    if (!m) continue;
-    const ri = clean.search(re);
-    const t = ri >= 0 ? clean.slice(ri, ri + 800).match(/data-time="([^"]+)"/) : null;
-    out.push({ key, percent: +m[1], resetsAt: t ? toMs(t[1]) : null });
-  }
-  const plan = text.match(/\b(Free|Pro|Max)\s+plan\b|\bplan[:\s]+(Free|Pro|Max)\b/i);
-  return { windows: out, plan: plan ? (plan[1] || plan[2]).toLowerCase() : null };
 }
 
 // Ollama's newer plans meter a monthly USD credit (Pro = $60, Max = $300), renewed on the day
@@ -129,22 +111,21 @@ async function runApi(key, cfg) {
 }
 
 async function run(cfg) {
-  if (cfg.ollamaApiKey) return runApi(cfg.ollamaApiKey, cfg);
-  const r = await pageFetch('ollama', 'https://ollama.com', '/settings');
-  if (isCloudflare(r.text)) return { error: 'cloudflare' };
-  if (r.status === 401 || r.status === 0 || /\/signin|\/login/.test(r.url || '')) return { action: 'login' };
-  const { windows, plan } = parseHtml(r.text || '');
-  if (!windows.length) return { error: 'ollama_page' };
-  return { windows, plan };
+  if (!cfg.ollamaApiKey) return { action: 'key', error: 'ollama_nokey' };
+  return runApi(cfg.ollamaApiKey, cfg);
 }
 
 module.exports = {
   id: 'ollama',
   name: 'Ollama',
-  loginUrl: 'https://ollama.com/signin',
+  loginUrl: null,
+  settings: [
+    { key: 'ollamaApiKey', type: 'secret' },
+    { key: 'ollamaBillingDay', type: 'number', min: 1, max: 31 },
+    { key: 'ollamaMonthlyCredits', type: 'number', min: 1 },
+  ],
   run,
   parseLimits,
-  parseHtml,
   parseBuckets,
   cycleBounds,
 };

@@ -42,6 +42,35 @@ test('every error/note code a provider can return has a translation', () => {
 });
 
 test('every window key a provider can return has a label', () => {
-  const keys = ['five_hour', 'weekly', 'seven_day', 'seven_day_sonnet', 'seven_day_opus', 'seven_day_omelette', 'extra_usage', 'session', 'month', 'window'];
+  const keys = [
+    'five_hour',
+    'weekly',
+    'seven_day',
+    'seven_day_sonnet',
+    'seven_day_opus',
+    'seven_day_omelette',
+    'extra_usage',
+    'session',
+    'month',
+    'key_limit',
+    'free_requests',
+    'premium_requests',
+    'synthetic_requests',
+    'nanogpt_daily_tokens',
+    'nanogpt_weekly_tokens',
+    'nanogpt_daily_images',
+    'mistral_month',
+    'monthly',
+    'window',
+  ];
   for (const k of keys) assert.ok(en[`win.${k}`], `missing win.${k}`);
+});
+
+test('every declared provider setting has a label', () => {
+  const { PROVIDERS } = require('../providers');
+  for (const p of PROVIDERS) {
+    for (const f of p.settings || []) {
+      assert.ok(en[`p.${p.id}.${f.key}`], `missing p.${p.id}.${f.key}`);
+    }
+  }
 });

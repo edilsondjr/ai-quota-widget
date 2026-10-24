@@ -1,0 +1,30 @@
+{
+  "active": true,
+  "state": "active",
+  "limits": {
+    "dailyInputTokens": 1000000,
+    "weeklyInputTokens": 6000000,
+    "dailyImages": 10
+  },
+  "dailyInputTokens": {
+    "used": 250000,
+    "remaining": 750000,
+    "percentUsed": 0.25,
+    "resetAt": 1893456000000
+  },
+  "weeklyInputTokens": {
+    "used": 1500000,
+    "remaining": 4500000,
+    "percentUsed": 0.25,
+    "resetAt": 1893542400000
+  },
+  "dailyImages": {
+    "used": 2,
+    "remaining": 8,
+    "percentUsed": 0.2,
+    "resetAt": 1893456000000
+  },
+  "period": {
+    "currentPeriodEnd": "2030-01-05T00:00:00.000Z"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "data": {
+    "label": "example-key",
+    "limit": 20,
+    "limit_reset": "monthly",
+    "limit_remaining": 12.5,
+    "include_byok_in_limit": false,
+    "budgets": [],
+    "effective_budget": null,
+    "usage": 30,
+    "usage_daily": 1.5,
+    "usage_weekly": 4,
+    "usage_monthly": 7.5,
+    "byok_usage": 0,
+    "byok_usage_daily": 0,
+    "byok_usage_weekly": 0,
+    "byok_usage_monthly": 0,
+    "is_free_tier": false,
+    "free_model_daily_requests": {
+      "used": 12,
+      "limit": 50,
+      "remaining": 38
+    }
+  }
+}

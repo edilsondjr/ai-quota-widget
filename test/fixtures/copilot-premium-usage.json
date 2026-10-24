@@ -1,0 +1,35 @@
+{
+  "timePeriod": {
+    "year": 2030,
+    "month": 1
+  },
+  "user": "example",
+  "usageItems": [
+    {
+      "product": "Copilot",
+      "sku": "Copilot Premium Request",
+      "model": "GPT-5",
+      "unitType": "requests",
+      "pricePerUnit": 0.04,
+      "grossQuantity": 100,
+      "grossAmount": 4,
+      "discountQuantity": 0,
+      "discountAmount": 0,
+      "netQuantity": 100,
+      "netAmount": 4
+    },
+    {
+      "product": "Copilot",
+      "sku": "Other",
+      "model": "GPT-5",
+      "unitType": "requests",
+      "pricePerUnit": 0.04,
+      "grossQuantity": 999,
+      "grossAmount": 39.96,
+      "discountQuantity": 0,
+      "discountAmount": 0,
+      "netQuantity": 999,
+      "netAmount": 39.96
+    }
+  ]
+}

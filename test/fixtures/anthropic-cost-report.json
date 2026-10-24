@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "starting_at": "2030-01-01T00:00:00Z",
+      "ending_at": "2030-01-02T00:00:00Z",
+      "results": [
+        {
+          "amount": "123.5",
+          "currency": "USD",
+          "cost_type": "tokens"
+        },
+        {
+          "amount": "0.25",
+          "currency": "USD",
+          "cost_type": "web_search"
+        }
+      ]
+    }
+  ],
+  "has_more": false,
+  "next_page": null
+}
