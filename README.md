@@ -19,17 +19,21 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Oll
 
 Download `Quota-Widget-Setup-<version>.exe` from the [Releases](../../releases) page and run it. No admin rights needed.
 
-The installer is **not code-signed**, so Windows SmartScreen may warn on first run: click *More info*, then *Run anyway*.
+The installer is **not code-signed**, so Windows SmartScreen may warn on first run: click *More info*, then *Run anyway*. If you would rather not run a downloaded installer, build it yourself (below): a locally built app never triggers that warning.
 
 ## Build from source
 
-Requires Node.js 20+ on Windows.
+Requires Node.js 20+, Git and Windows. No admin rights or extra build tools.
 
-```
+```bash
+git clone https://github.com/edilsondjr/ai-quota-widget.git
+cd ai-quota-widget
 npm install
-npm start          # run in development
+npm start          # run from source
 npm run dist       # build the installer into dist/
 ```
+
+The build also leaves a ready-to-run copy in `dist/win-unpacked/`. More detail, silent install and troubleshooting: [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Where the data comes from
 
