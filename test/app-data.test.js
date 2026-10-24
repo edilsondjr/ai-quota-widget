@@ -76,7 +76,7 @@ test('prepareDataDir ignores a legacy dir equal to the data dir', (t) => {
   assert.ok(fs.existsSync(paths.profilesDir));
 });
 
-test('sanitizeLegacyConfig removes plaintext secret keys only', (t) => {
+test('sanitizeLegacyConfig removes plaintext keys and custom specs', (t) => {
   const root = tempRoot();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, 'config.json');
@@ -85,6 +85,8 @@ test('sanitizeLegacyConfig removes plaintext secret keys only', (t) => {
     ollamaApiKey: 'sk-plain',
     commandcodeApiKey: 'cc-plain',
     secrets: { openrouterApiKey: 'encrypted' },
+    customProviders: [{ name: 'My API', url: 'https://api.example.com' }],
+    customProvidersEnc: 'encrypted-specs',
     enabled: { claude: true },
   });
 
@@ -92,6 +94,8 @@ test('sanitizeLegacyConfig removes plaintext secret keys only', (t) => {
   const out = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(out.ollamaApiKey, undefined);
   assert.equal(out.commandcodeApiKey, undefined);
+  assert.equal(out.customProviders, undefined);
+  assert.equal(out.customProvidersEnc, undefined);
   assert.deepEqual(out.secrets, { openrouterApiKey: 'encrypted' });
   assert.equal(out.language, 'pt-BR');
   assert.deepEqual(out.enabled, { claude: true });

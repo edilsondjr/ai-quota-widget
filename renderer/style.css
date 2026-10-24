@@ -158,6 +158,9 @@ body { padding: 8px; }
 }
 .fld textarea:focus { outline: 1px solid var(--accent); }
 .custom-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
+.config-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.config-actions .btn { padding: 4px 10px; font-size: 12px; }
+.btn.danger { border-color: rgba(239, 91, 91, 0.5); color: var(--bad); }
 .mode-row { display: flex; gap: 6px; margin: 8px 0 4px; }
 .mode-row .btn { padding: 4px 10px; font-size: 12px; }
 .mode-row .btn.on { color: var(--accent); border-color: var(--accent); background: rgba(122, 162, 255, 0.12); }
@@ -165,6 +168,11 @@ body { padding: 8px; }
 .custom-tools .btn { padding: 4px 10px; font-size: 12px; }
 .guided { display: flex; flex-direction: column; }
 .guided .fld textarea { min-height: 64px; }
+.guided-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.guided-row { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: rgba(255, 255, 255, 0.02); }
+.guided-row .fld { margin-bottom: 6px; }
+.guided-row .link { align-self: flex-start; }
+.guided-add { align-self: flex-start; margin-bottom: 8px; padding: 4px 10px; font-size: 12px; }
 .test-result {
   border: 1px solid var(--border);
   border-radius: 6px;

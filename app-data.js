@@ -15,12 +15,18 @@ function dataPaths(home) {
   };
 }
 
-// Older versions could leave keys in plain text in their config. Remove those keys
-// once the new config exists (encrypted blobs under `secrets` stay untouched).
+// Older versions could leave keys or custom provider specs in plain text in their
+// config. Remove those once the new config exists (encrypted blobs stay untouched).
 function sanitizeLegacyConfig(file, secretKeys) {
   const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
   let changed = false;
   for (const k of secretKeys) {
+    if (k in parsed) {
+      delete parsed[k];
+      changed = true;
+    }
+  }
+  for (const k of ['customProviders', 'customProvidersEnc']) {
     if (k in parsed) {
       delete parsed[k];
       changed = true;

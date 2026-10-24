@@ -86,6 +86,13 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByRole('button', { name: 'Cancel' }).click();
   await add.waitFor();
   assert.equal(await page.locator('#custom-spec').count(), 0);
+  await page.getByText('Notifications', { exact: true }).waitFor();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Back up config', exact: true }).click();
+  const backups = path.join(home, '.quotawidget', 'backups');
+  assert.ok(fs.existsSync(backups));
+  assert.ok(fs.readdirSync(backups).some((f) => f.endsWith('.json')));
 
   // Add again using the guided form; the local server handles the test request.
   await add.click();
@@ -93,16 +100,31 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByLabel('URL', { exact: true }).fill(`http://127.0.0.1:${port}/usage`);
   await page.locator('#custom-auth').selectOption('none');
   await page.getByLabel('Note template', { exact: true }).fill('Balance: {amount}');
-  await page.getByLabel('Amount path', { exact: true }).fill('data.balance');
+  await page.locator('#custom-note-value-0-path').fill('data.balance');
+  await page.getByRole('button', { name: 'Add window', exact: true }).click();
+  await page.locator('#custom-window-1-key').fill('week');
+  await page.locator('#custom-window-1-label').fill('Week');
+  await page.locator('#custom-window-1-percent').fill('data.percent');
   await page.getByRole('button', { name: 'JSON', exact: true }).click();
   await page.locator('#custom-spec').waitFor();
   assert.match(await page.locator('#custom-spec').inputValue(), /"name": "Local test"/);
+  assert.match(await page.locator('#custom-spec').inputValue(), /"key": "week"/);
   await page.getByRole('button', { name: 'Test' }).click();
   await page.getByText('Response parsed successfully:').waitFor();
   await page.getByText('Month: 42.0%').waitFor();
+  await page.getByText('Week: 42.0%').waitFor();
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByText('Local test').waitFor();
   await page.getByText('Edit custom provider').waitFor();
+  await page.getByText('Last success').waitFor();
+  await page.getByText('Refresh interval (minutes)').waitFor();
+
+  // The custom spec (including headers/body) must not be stored in plain text.
+  const rawCfg = fs.readFileSync(path.join(home, '.quotawidget', 'config.json'), 'utf8');
+  assert.match(rawCfg, /"configVersion": 2/);
+  assert.match(rawCfg, /"customProvidersEnc"/);
+  assert.doesNotMatch(rawCfg, /"customProviders":/);
+  assert.doesNotMatch(rawCfg, /Local test/);
 
   // Back to the settings list, close settings, and check the card.
   await page.locator('button.back').click();

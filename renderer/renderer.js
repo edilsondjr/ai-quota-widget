@@ -221,7 +221,9 @@ function openSettings(providerId) {
     intervalMin: cfg.intervalMin == null ? 5 : cfg.intervalMin,
     pinned: !!last.pinned,
     openAtLogin: !!cfg.openAtLogin,
+    notify: cfg.notify !== false,
     enabled: { ...(cfg.enabled || {}) },
+    providerIntervals: { ...(cfg.providerIntervals || {}) },
     hiddenWindows: JSON.parse(JSON.stringify(cfg.hiddenWindows || {})),
     values: {},
     secrets: {},
@@ -269,7 +271,9 @@ function mainScreen() {
   pin.input.onchange = () => (draft.pinned = pin.input.checked);
   const login = check(t('s.autostart'), draft.openAtLogin);
   login.input.onchange = () => (draft.openAtLogin = login.input.checked);
-  form.append(pin.wrap, login.wrap);
+  const notify = check(t('s.notifications'), draft.notify);
+  notify.input.onchange = () => (draft.notify = notify.input.checked);
+  form.append(pin.wrap, login.wrap, notify.wrap, el('div', 'hint', t('s.notifications_hint')));
 
   form.append(el('h3', null, t('s.services')));
   for (const meta of last.providerMeta || []) {
@@ -305,6 +309,50 @@ function mainScreen() {
     renderSettings();
   };
   form.append(addCustom);
+
+  form.append(el('h3', null, t('s.config')));
+  form.append(el('div', 'hint', t('s.config_hint')));
+  const configActions = el('div', 'config-actions');
+  const backup = el('button', 'btn', t('s.config_backup'));
+  backup.type = 'button';
+  backup.onclick = async () => {
+    const res = await window.qw.backupConfig();
+    if (res && res.ok) alert(t('s.config_backed_up', { path: res.path }));
+    else alert(t('s.config_error', { error: (res && res.error) || 'unknown' }));
+  };
+  const exportBtn = el('button', 'btn', t('s.config_export'));
+  exportBtn.type = 'button';
+  exportBtn.onclick = async () => {
+    const res = await window.qw.exportConfig();
+    if (res && res.canceled) return;
+    if (res && res.ok) alert(t('s.config_exported', { path: res.path }));
+    else alert(t('s.config_error', { error: (res && res.error) || 'unknown' }));
+  };
+  const importBtn = el('button', 'btn', t('s.config_import'));
+  importBtn.type = 'button';
+  importBtn.onclick = async () => {
+    if (!confirm(t('s.config_import_confirm'))) return;
+    const res = await window.qw.importConfig();
+    if (res && res.canceled) return;
+    if (!res || !res.ok) {
+      alert(t('s.config_error', { error: (res && res.error) || 'unknown' }));
+      return;
+    }
+    alert(t('s.config_restarting'));
+  };
+  const resetBtn = el('button', 'btn danger', t('s.config_reset'));
+  resetBtn.type = 'button';
+  resetBtn.onclick = async () => {
+    if (!confirm(t('s.config_reset_confirm'))) return;
+    const res = await window.qw.resetConfig();
+    if (!res || !res.ok) {
+      alert(t('s.config_error', { error: (res && res.error) || 'unknown' }));
+      return;
+    }
+    alert(t('s.config_restarting'));
+  };
+  configActions.append(backup, exportBtn, importBtn, resetBtn);
+  form.append(configActions);
 
   form.append(actions());
   return form;
@@ -346,6 +394,62 @@ function detailScreen(id) {
     };
     form.append(c.wrap);
   }
+
+  form.append(el('h3', null, t('s.diagnostics')));
+  if (!reading) {
+    form.append(el('div', 'hint', t('s.diagnostics_empty')));
+  } else {
+    const rows = [];
+    rows.push(`${t('s.diag_last')}: ${reading.lastSuccessAt ? new Date(reading.lastSuccessAt).toLocaleString(lang) : '—'}`);
+    rows.push(`${t('s.diag_latency')}: ${reading.latencyMs != null ? `${reading.latencyMs} ms` : '—'}`);
+    rows.push(`${t('s.diag_failures')}: ${reading.consecutiveFailures || 0}`);
+    if (reading.nextRetryAt) rows.push(`${t('s.diag_retry')}: ${new Date(reading.nextRetryAt).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' })}`);
+    if (reading.error) rows.push(`${t('s.diag_error')}: ${providerText('err', reading.error, reading.errorParams)}`);
+    for (const row of rows) form.append(el('div', 'hint', row));
+    const copyDiag = el('button', 'btn', t('s.diag_copy'));
+    copyDiag.type = 'button';
+    copyDiag.onclick = async () => {
+      const diag = {
+        id,
+        name: meta.name,
+        ok: !!reading.ok,
+        stale: !!reading.stale,
+        error: reading.error || null,
+        errorParams: reading.errorParams || null,
+        action: reading.action || null,
+        lastSuccessAt: reading.lastSuccessAt || null,
+        lastAttemptAt: reading.lastAttemptAt || null,
+        latencyMs: reading.latencyMs == null ? null : reading.latencyMs,
+        consecutiveFailures: reading.consecutiveFailures || 0,
+        nextRetryAt: reading.nextRetryAt || null,
+        updatedAt: last.updatedAt || null,
+        windows: (reading.windows || []).map((w) => ({ key: w.key, label: w.label, percent: w.percent, resetsAt: w.resetsAt, detail: w.detail })),
+      };
+      try {
+        await window.qw.copyText(JSON.stringify(diag, null, 2));
+        copyDiag.textContent = t('s.copied');
+        setTimeout(() => (copyDiag.textContent = t('s.diag_copy')), 1500);
+      } catch (e) {
+        alert(e && e.message ? e.message : String(e));
+      }
+    };
+    form.append(copyDiag);
+  }
+
+  form.append(el('h3', null, t('s.refresh')));
+  const interval = textInput(
+    'number',
+    draft.providerIntervals[id] == null ? '' : draft.providerIntervals[id],
+    t('s.interval_default', { n: draft.intervalMin })
+  );
+  interval.min = 1;
+  interval.max = 240;
+  interval.oninput = () => {
+    const v = interval.value.trim();
+    if (v) draft.providerIntervals[id] = v;
+    else delete draft.providerIntervals[id];
+  };
+  form.append(field(t('s.interval_provider'), interval, t('s.interval_provider_hint')));
 
   if (meta.custom) {
     form.append(el('h3', null, t('s.custom')));
@@ -406,7 +510,7 @@ function customScreen(target) {
     delete editable.keyName;
   }
   const initial = window.customSpec.toGuided(editable);
-  let mode = initial.complex ? 'json' : 'guided';
+  let mode = 'guided';
   let previousTemplate = 'usage';
 
   const modeRow = el('div', 'mode-row');
@@ -416,7 +520,6 @@ function customScreen(target) {
   jsonBtn.type = 'button';
   modeRow.append(guidedBtn, jsonBtn);
   form.append(modeRow);
-  if (initial.complex) form.append(el('div', 'hint', t('s.custom_guided_complex')));
 
   const templateSel = document.createElement('select');
   for (const [key, label] of [['usage', t('s.custom_template_usage')], ['balance', t('s.custom_template_balance')], ['cost', t('s.custom_template_cost')]]) {
@@ -470,17 +573,109 @@ function customScreen(target) {
   g.authPrefix = textInput('text', initial.guided.authPrefix, 'Bearer ');
   g.headers = textarea(initial.guided.headers, 3);
   g.body = textarea(initial.guided.body, 3);
-  g.windowKey = textInput('text', initial.guided.windowKey, 'month');
-  g.windowLabel = textInput('text', initial.guided.windowLabel, 'Month');
-  g.percent = textInput('text', initial.guided.percent, 'data.percent');
-  g.scale = select(
-    [['percent', t('s.custom_scale_percent')], ['fraction', t('s.custom_scale_fraction')]],
-    initial.guided.scale
-  );
-  g.resetsAt = textInput('text', initial.guided.resetsAt, 'data.reset');
-  g.detail = textInput('text', initial.guided.detail, 'data.detail');
+  const windowsBox = el('div', 'guided-rows');
+  const windows = [];
+  let windowSeq = -1;
+  const addWindow = (w = {}) => {
+    const fields = {
+      key: textInput('text', w.key || '', 'month'),
+      label: textInput('text', w.label || '', 'Month'),
+      percent: textInput('text', w.percent || '', 'data.percent'),
+      scale: select(
+        [['percent', t('s.custom_scale_percent')], ['fraction', t('s.custom_scale_fraction')]],
+        w.scale === 'fraction' ? 'fraction' : 'percent'
+      ),
+      resetsAt: textInput('text', w.resetsAt || '', 'data.reset'),
+      detail: textInput('text', w.detail || '', 'data.detail'),
+    };
+    const seq = ++windowSeq;
+    for (const [name, input] of Object.entries(fields)) input.id = `custom-window-${seq}-${name}`;
+    const row = el('div', 'guided-row');
+    const remove = el('button', 'link dim', t('s.custom_remove'));
+    remove.type = 'button';
+    const entry = { row, fields };
+    remove.onclick = () => {
+      const i = windows.indexOf(entry);
+      if (i >= 0) windows.splice(i, 1);
+      row.remove();
+      syncGuided();
+      fitWindow();
+    };
+    row.append(
+      field(t('s.custom_window_key'), fields.key),
+      field(t('s.custom_window_label'), fields.label),
+      field(t('s.custom_percent_path'), fields.percent),
+      field(t('s.custom_scale'), fields.scale),
+      field(t('s.custom_reset_path'), fields.resetsAt),
+      field(t('s.custom_detail_path'), fields.detail),
+      remove
+    );
+    for (const input of Object.values(fields)) {
+      input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
+        testBox.hidden = true;
+        if (mode === 'guided') syncGuided();
+      });
+    }
+    windowsBox.append(row);
+    windows.push(entry);
+    return entry;
+  };
+  const addWindowBtn = el('button', 'btn guided-add', t('s.custom_add_window'));
+  addWindowBtn.type = 'button';
+  addWindowBtn.onclick = () => {
+    addWindow();
+    syncGuided();
+    testBox.hidden = true;
+    fitWindow();
+  };
+
+  const noteBox = el('div', 'guided-rows');
+  const noteValues = [];
+  let noteSeq = -1;
+  const addNoteValue = (v = {}) => {
+    const fields = {
+      name: textInput('text', v.name || '', 'amount'),
+      path: textInput('text', v.path || '', 'data.balance'),
+    };
+    const seq = ++noteSeq;
+    fields.name.id = `custom-note-value-${seq}-name`;
+    fields.path.id = `custom-note-value-${seq}-path`;
+    const row = el('div', 'guided-row');
+    const remove = el('button', 'link dim', t('s.custom_remove'));
+    remove.type = 'button';
+    const entry = { row, fields };
+    remove.onclick = () => {
+      const i = noteValues.indexOf(entry);
+      if (i >= 0) noteValues.splice(i, 1);
+      row.remove();
+      syncGuided();
+      fitWindow();
+    };
+    row.append(
+      field(t('s.custom_note_value_name'), fields.name),
+      field(t('s.custom_note_value_path'), fields.path),
+      remove
+    );
+    for (const input of Object.values(fields)) {
+      input.addEventListener('input', () => {
+        testBox.hidden = true;
+        if (mode === 'guided') syncGuided();
+      });
+    }
+    noteBox.append(row);
+    noteValues.push(entry);
+    return entry;
+  };
+  const addNoteValueBtn = el('button', 'btn guided-add', t('s.custom_add_value'));
+  addNoteValueBtn.type = 'button';
+  addNoteValueBtn.onclick = () => {
+    addNoteValue({ name: 'amount' });
+    syncGuided();
+    testBox.hidden = true;
+    fitWindow();
+  };
+
   g.noteTemplate = textInput('text', initial.guided.noteTemplate, 'Balance: {amount}');
-  g.noteAmountPath = textInput('text', initial.guided.noteAmountPath, 'data.balance');
   g.plan = textInput('text', initial.guided.plan, 'data.plan');
 
   const authHeaderField = field(t('s.custom_auth_header_name'), g.authHeader);
@@ -497,15 +692,12 @@ function customScreen(target) {
     field(t('s.custom_headers'), g.headers, t('s.custom_headers_hint')),
     bodyField,
     el('h3', null, t('s.custom_window')),
-    field(t('s.custom_window_key'), g.windowKey),
-    field(t('s.custom_window_label'), g.windowLabel),
-    field(t('s.custom_percent_path'), g.percent),
-    field(t('s.custom_scale'), g.scale),
-    field(t('s.custom_reset_path'), g.resetsAt),
-    field(t('s.custom_detail_path'), g.detail),
+    windowsBox,
+    addWindowBtn,
     el('h3', null, t('s.custom_note')),
     field(t('s.custom_note_template'), g.noteTemplate),
-    field(t('s.custom_note_amount'), g.noteAmountPath),
+    noteBox,
+    addNoteValueBtn,
     field(t('s.custom_plan_path'), g.plan)
   );
   form.append(guidedPanel);
@@ -594,9 +786,16 @@ function customScreen(target) {
   };
 
   const populateGuided = (guided) => {
-    for (const key of ['name', 'url', 'method', 'auth', 'authHeader', 'authPrefix', 'headers', 'body', 'windowKey', 'windowLabel', 'percent', 'scale', 'resetsAt', 'detail', 'noteTemplate', 'noteAmountPath', 'plan']) {
+    for (const key of ['name', 'url', 'method', 'auth', 'authHeader', 'authPrefix', 'headers', 'body', 'noteTemplate', 'plan']) {
       g[key].value = guided[key] == null ? '' : guided[key];
     }
+    windowsBox.replaceChildren();
+    windows.splice(0);
+    for (const w of guided.windows || []) addWindow(w);
+    noteBox.replaceChildren();
+    noteValues.splice(0);
+    for (const v of guided.noteValues || []) addNoteValue(v);
+    if (!noteValues.length) addNoteValue({ name: 'amount' });
     refreshConditional();
   };
 
@@ -621,14 +820,16 @@ function customScreen(target) {
       authPrefix: g.authPrefix.value,
       headers,
       body: g.body.value,
-      windowKey: g.windowKey.value,
-      windowLabel: g.windowLabel.value,
-      percent: g.percent.value,
-      scale: g.scale.value,
-      resetsAt: g.resetsAt.value,
-      detail: g.detail.value,
+      windows: windows.map((e) => ({
+        key: e.fields.key.value,
+        label: e.fields.label.value,
+        percent: e.fields.percent.value,
+        scale: e.fields.scale.value,
+        resetsAt: e.fields.resetsAt.value,
+        detail: e.fields.detail.value,
+      })),
       noteTemplate: g.noteTemplate.value,
-      noteAmountPath: g.noteAmountPath.value,
+      noteValues: noteValues.map((e) => ({ name: e.fields.name.value, path: e.fields.path.value })),
       plan: g.plan.value,
     });
     specInput.value = JSON.stringify(built, null, 2);
@@ -649,10 +850,6 @@ function customScreen(target) {
         return;
       }
       const info = window.customSpec.toGuided(parsed);
-      if (info.complex) {
-        showError(t('s.custom_guided_complex'));
-        return;
-      }
       populateGuided(info.guided);
       mode = 'guided';
       guidedPanel.hidden = false;
@@ -694,13 +891,13 @@ function customScreen(target) {
     fitWindow();
   };
 
-  for (const input of [g.name, g.url, g.authHeader, g.authPrefix, g.headers, g.body, g.windowKey, g.windowLabel, g.percent, g.resetsAt, g.detail, g.noteTemplate, g.noteAmountPath, g.plan]) {
+  for (const input of [g.name, g.url, g.authHeader, g.authPrefix, g.headers, g.body, g.noteTemplate, g.plan]) {
     input.addEventListener('input', () => {
       testBox.hidden = true;
       if (mode === 'guided') syncGuided();
     });
   }
-  for (const input of [g.method, g.auth, g.scale]) {
+  for (const input of [g.method, g.auth]) {
     input.addEventListener('change', () => {
       refreshConditional();
       testBox.hidden = true;
@@ -722,10 +919,7 @@ function customScreen(target) {
     specInput.value = JSON.stringify(template, null, 2);
     const info = window.customSpec.toGuided(template);
     populateGuided(info.guided);
-    if (mode === 'guided') {
-      if (info.complex) setMode('json', false);
-      else syncGuided();
-    }
+    if (mode === 'guided') syncGuided();
     testBox.hidden = true;
     fitWindow();
   };
@@ -754,8 +948,7 @@ function customScreen(target) {
         const info = window.customSpec.toGuided(parsed);
         specInput.value = JSON.stringify(parsed, null, 2);
         populateGuided(info.guided);
-        if (info.complex) setMode('json', false);
-        else if (mode === 'guided') syncGuided();
+        if (mode === 'guided') syncGuided();
         testBox.hidden = true;
         fitWindow();
       } catch (_) {
@@ -917,6 +1110,8 @@ async function saveSettings(button) {
     pinned: draft.pinned,
     openAtLogin: draft.openAtLogin,
     enabled: { ...draft.enabled },
+    providerIntervals: { ...draft.providerIntervals },
+    notify: !!draft.notify,
     hiddenWindows: JSON.parse(JSON.stringify(draft.hiddenWindows)),
   };
   for (const meta of last.providerMeta || []) {

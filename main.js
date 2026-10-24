@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage, clipboard } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage, clipboard, dialog, Notification } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -13,6 +13,7 @@ const { prepareDataDir, sanitizeLegacyConfig, writeJsonAtomic } = require('./app
 // SETTING_FIELDS/SECRET_KEYS are rebuilt whenever the custom list changes.
 let SETTING_FIELDS = [];
 let SECRET_KEYS = [];
+let customSpecsLocked = false;
 function rebuildRegistry(specs) {
   setCustomProviders((Array.isArray(specs) ? specs : []).map(buildCustomProvider).filter(Boolean));
   const list = getProviders();
@@ -55,7 +56,7 @@ const LEGACY_WINDOW_KEYS = {
 };
 
 const WIDTH = 336;
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 const DEFAULTS = {
   configVersion: CONFIG_VERSION,
   language: FALLBACK_LANG,
@@ -83,6 +84,8 @@ const DEFAULTS = {
     opencode: false,
   },
   hiddenWindows: {},
+  providerIntervals: {},
+  notify: true,
   ollamaBillingDay: null,
   ollamaMonthlyCredits: null,
   claudeShowUnknown: false,
@@ -92,6 +95,8 @@ let win = null;
 let tray = null;
 let timer = null;
 let cfg = { ...DEFAULTS };
+const notifiedWindows = new Map();
+const NOTIFY_AT = 90;
 const state = { providers: {}, updatedAt: null, loading: false, pinned: true, version: '', config: {}, lang: FALLBACK_LANG, strings: {}, languages: [], providerMeta: [] };
 
 function applyLanguage() {
@@ -101,6 +106,59 @@ function applyLanguage() {
   state.lang = cfg.language;
   state.languages = Object.entries(LOCALES).map(([code, l]) => ({ code, name: l._name || code }));
   t = translator(state.strings);
+}
+
+function intervalFor(id) {
+  const v = Number(cfg.providerIntervals && cfg.providerIntervals[id]);
+  if (Number.isFinite(v) && v >= 1 && v <= 240) return v;
+  return Math.max(1, Math.min(240, Number(cfg.intervalMin) || 5));
+}
+
+function backoffMs(id, failures) {
+  const base = intervalFor(id) * 60000;
+  return Math.min(base * Math.pow(2, Math.max(0, failures - 1)), 60 * 60000);
+}
+
+function windowName(key) {
+  const text = t(`win.${key}`);
+  return text === `win.${key}` ? String(key || '').replace(/_/g, ' ') : text;
+}
+
+function notify(title, body) {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body });
+    n.on('click', () => {
+      if (win && !win.isDestroyed()) {
+        win.show();
+        win.focus();
+      }
+    });
+    n.show();
+  } catch (_) {}
+}
+
+function maybeNotify(id, name, prev, next) {
+  if (!cfg.notify || !next || !next.ok || !Notification.isSupported()) return;
+  const oldByKey = new Map(((prev && prev.ok ? prev.windows : []) || []).map((w) => [w.key, w]));
+  const now = Date.now();
+  for (const w of next.windows || []) {
+    const mapKey = `${id}:${w.key}`;
+    const old = oldByKey.get(w.key);
+    const last = notifiedWindows.get(mapKey);
+    const label = w.label || windowName(w.key);
+    const renewed = old && old.resetsAt && w.resetsAt && old.resetsAt !== w.resetsAt && old.resetsAt <= now && w.resetsAt > now;
+    if (renewed) {
+      notify(t('notify.renew.title', { name }), t('notify.renew.body', { window: label }));
+      notifiedWindows.delete(mapKey);
+    }
+    if ((w.percent || 0) >= NOTIFY_AT && (!last || last.resetAt !== w.resetsAt)) {
+      notify(t('notify.high.title', { name }), t('notify.high.body', { window: label, percent: Math.round(w.percent) }));
+      notifiedWindows.set(mapKey, { resetAt: w.resetsAt, percent: w.percent });
+    } else if ((w.percent || 0) < NOTIFY_AT && last) {
+      notifiedWindows.delete(mapKey);
+    }
+  }
 }
 
 const cfgPath = () => path.join(app.getPath('userData'), 'config.json');
@@ -137,18 +195,48 @@ function loadCfg() {
     raw = JSON.parse(fs.readFileSync(fromLegacy ? legacyPath : newPath, 'utf8'));
   } catch (_) {}
 
-  // Custom providers must be registered before readSecrets, since their API keys
-  // are part of the dynamic secret list.
-  const list = rebuildRegistry(raw && raw.customProviders);
+  // Custom providers are stored encrypted. The plaintext field is only read to
+  // migrate configs written before version 2. Decrypt before readSecrets so custom
+  // key names join the dynamic secret list.
+  let customSpecs = [];
+  let encryptedSpecs = null;
+  customSpecsLocked = false;
+  if (raw) {
+    if (typeof raw.customProvidersEnc === 'string' && raw.customProvidersEnc) {
+      encryptedSpecs = raw.customProvidersEnc;
+      if (canEncrypt()) {
+        try {
+          const decoded = JSON.parse(safeStorage.decryptString(Buffer.from(raw.customProvidersEnc, 'base64')));
+          if (Array.isArray(decoded)) customSpecs = decoded;
+        } catch (_) {
+          customSpecsLocked = true;
+        }
+      } else {
+        customSpecsLocked = true;
+      }
+    }
+    if (!customSpecs.length && !customSpecsLocked && Array.isArray(raw.customProviders)) customSpecs = raw.customProviders;
+  }
+  const list = rebuildRegistry(customSpecs);
   if (raw) {
     cfg = { ...DEFAULTS, ...raw, ...readSecrets(raw) };
     delete cfg.secrets;
-    needsSave = fromLegacy || raw.configVersion !== CONFIG_VERSION || SECRET_KEYS.some((k) => typeof raw[k] === 'string' && raw[k]);
+    delete cfg.customProvidersEnc;
+    cfg.customProviders = customSpecs;
+    if (encryptedSpecs) cfg.customProvidersEnc = encryptedSpecs;
+    needsSave = fromLegacy || raw.configVersion !== CONFIG_VERSION || customSpecsLocked ||
+      (Array.isArray(raw.customProviders) && raw.customProviders.length > 0) ||
+      SECRET_KEYS.some((k) => typeof raw[k] === 'string' && raw[k]);
   } else {
     cfg = { ...DEFAULTS };
     needsSave = true;
   }
+  cfg.configVersion = CONFIG_VERSION;
   cfg.customProviders = Array.isArray(cfg.customProviders) ? cfg.customProviders : [];
+  if (needsSave && raw && !fromLegacy && fs.existsSync(newPath) &&
+      (raw.configVersion !== CONFIG_VERSION || (Array.isArray(raw.customProviders) && raw.customProviders.length))) {
+    backupConfig('before-migration');
+  }
   if (needsSave) saveCfg();
   // The new config only ever gets written by saveCfg (encrypted). Once it exists,
   // remove any plaintext keys left in the old location.
@@ -158,6 +246,8 @@ function loadCfg() {
     } catch (_) {}
   }
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
+  cfg.providerIntervals = cfg.providerIntervals && typeof cfg.providerIntervals === 'object' && !Array.isArray(cfg.providerIntervals) ? cfg.providerIntervals : {};
+  cfg.notify = cfg.notify !== false;
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
   for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
     if (Array.isArray(cfg.hiddenWindows[id])) cfg.hiddenWindows[id] = cfg.hiddenWindows[id].map((k) => legacy[k] || k);
@@ -177,6 +267,8 @@ function publicConfig() {
     enabled: cfg.enabled,
     hiddenWindows: cfg.hiddenWindows,
     customProviders: cfg.customProviders,
+    providerIntervals: cfg.providerIntervals,
+    notify: cfg.notify !== false,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
   };
 }
@@ -187,8 +279,24 @@ function saveCfg() {
     if (!encrypt && SECRET_KEYS.some((k) => cfg[k])) {
       console.warn('safeStorage unavailable: API keys will not be written to disk');
     }
+    if (!encrypt && (cfg.customProviders || []).length) {
+      console.warn('safeStorage unavailable: custom providers will not be written to disk');
+    }
     const out = configForDisk(cfg, SECRET_KEYS, encrypt);
+    delete out.customProviders;
+    delete out.customProvidersEnc;
+    if (encrypt) {
+      if (customSpecsLocked && typeof cfg.customProvidersEnc === 'string' && cfg.customProvidersEnc) {
+        out.customProvidersEnc = cfg.customProvidersEnc;
+      } else {
+        out.customProvidersEnc = safeStorage.encryptString(JSON.stringify(cfg.customProviders || [])).toString('base64');
+      }
+    } else if (typeof cfg.customProvidersEnc === 'string' && cfg.customProvidersEnc) {
+      out.customProvidersEnc = cfg.customProvidersEnc;
+    }
     writeJsonAtomic(cfgPath(), out);
+    if (out.customProvidersEnc) cfg.customProvidersEnc = out.customProvidersEnc;
+    else delete cfg.customProvidersEnc;
   } catch (_) {}
 }
 
@@ -196,9 +304,18 @@ function push() {
   if (win && !win.isDestroyed()) win.webContents.send('state', state);
 }
 
-async function refresh(ids) {
+async function refresh(ids, manual = false) {
   const all = getProviders().map((p) => p.id).filter((id) => cfg.enabled[id] !== false);
-  const list = ids && ids.length ? ids.filter((id) => all.includes(id)) : all;
+  const requested = ids && ids.length ? ids.filter((id) => all.includes(id)) : all;
+  const now = Date.now();
+  const list = manual ? requested : requested.filter((id) => {
+    const prev = state.providers[id];
+    if (prev && prev.nextRetryAt && prev.nextRetryAt > now) return false;
+    if (prev && prev.lastAttemptAt && now - prev.lastAttemptAt < intervalFor(id) * 60000) return false;
+    return true;
+  });
+  if (!list.length) return;
+
   state.loading = true;
   push();
 
@@ -206,8 +323,17 @@ async function refresh(ids) {
   const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
     while (queue.length) {
       const id = queue.shift();
+      const prev = state.providers[id];
+      const started = Date.now();
       const next = await collect(id, cfg);
-      state.providers[id] = mergeReading(state.providers[id], next);
+      next.latencyMs = Date.now() - started;
+      next.lastAttemptAt = Date.now();
+      const merged = mergeReading(prev, next);
+      const failures = next.ok ? 0 : (prev && prev.consecutiveFailures ? prev.consecutiveFailures : 0) + 1;
+      merged.consecutiveFailures = failures;
+      merged.nextRetryAt = next.ok ? null : Date.now() + backoffMs(id, failures);
+      state.providers[id] = merged;
+      maybeNotify(id, next.name || id, prev, next);
       push();
     }
   });
@@ -220,8 +346,10 @@ async function refresh(ids) {
 
 function schedule() {
   clearInterval(timer);
-  const ms = Math.max(1, Number(cfg.intervalMin) || 5) * 60 * 1000;
-  timer = setInterval(() => refresh(), ms);
+  const enabled = getProviders().filter((p) => cfg.enabled[p.id] !== false);
+  const minutes = enabled.length ? Math.min(...enabled.map((p) => intervalFor(p.id))) : Math.max(1, Number(cfg.intervalMin) || 5);
+  const jitter = 0.9 + Math.random() * 0.2;
+  timer = setInterval(() => refresh(), Math.max(60000, minutes * 60000 * jitter));
 }
 
 function defaultPosition() {
@@ -323,7 +451,7 @@ function buildTrayMenu() {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
     { label: t('tray.toggle'), click: toggleWindow },
-    { label: t('tray.refresh'), click: () => refresh() },
+    { label: t('tray.refresh'), click: () => refresh(undefined, true) },
     { type: 'separator' },
     { label: t('tray.pin'), type: 'checkbox', checked: state.pinned, click: (i) => setPinned(i.checked) },
     {
@@ -331,6 +459,17 @@ function buildTrayMenu() {
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
       click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }),
+    },
+    {
+      label: t('tray.mute'),
+      type: 'checkbox',
+      checked: !cfg.notify,
+      click: (i) => {
+        cfg.notify = !i.checked;
+        saveCfg();
+        push();
+        buildTrayMenu();
+      },
     },
     { label: t('tray.open_folder'), click: () => shell.openPath(app.getPath('userData')) },
     { type: 'separator' },
@@ -359,7 +498,7 @@ function openLogin(id) {
   w.loadURL(p.loginUrl);
   w.on('closed', () => {
     if (id === 'claude') resetClaudeOrg();
-    refresh([id]);
+    refresh([id], true);
   });
 }
 
@@ -434,22 +573,153 @@ async function testCustomProvider(input) {
   return { ok: true, ...result };
 }
 
+function backupConfig(reason = 'manual') {
+  try {
+    if (!fs.existsSync(cfgPath())) saveCfg();
+    if (!fs.existsSync(cfgPath())) return null;
+    const dir = path.join(app.getPath('userData'), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dest = path.join(dir, `config-${stamp}-${reason}.json`);
+    fs.copyFileSync(cfgPath(), dest);
+    pruneBackups(dir);
+    return dest;
+  } catch (_) {
+    return null;
+  }
+}
+
+function pruneBackups(dir) {
+  try {
+    const files = fs.readdirSync(dir).filter((f) => /^config-.*\.json$/.test(f)).sort();
+    for (const f of files.slice(0, Math.max(0, files.length - 10))) {
+      try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+function restartSoon() {
+  setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 500);
+}
+
+async function exportConfig(event) {
+  try {
+    if (!fs.existsSync(cfgPath())) saveCfg();
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const date = new Date().toISOString().slice(0, 10);
+    const options = {
+      title: t('s.config_export_title'),
+      defaultPath: path.join(app.getPath('documents'), `quota-widget-config-${date}.json`),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = parent ? await dialog.showSaveDialog(parent, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    fs.copyFileSync(cfgPath(), result.filePath);
+    return { ok: true, path: result.filePath };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+}
+
+async function importConfig(event) {
+  try {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: t('s.config_import_title'),
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+    let raw;
+    try {
+      raw = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    } catch (_) {
+      return { ok: false, error: 'Invalid JSON file' };
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'Invalid config file' };
+    if (raw.configVersion && Number(raw.configVersion) > CONFIG_VERSION) {
+      return { ok: false, error: 'This config was written by a newer version' };
+    }
+    for (const [k, v] of Object.entries(raw)) {
+      if (/(apiKey|ApiKey)$/.test(k) && typeof v === 'string' && v) {
+        return { ok: false, error: 'This config contains plaintext API keys. Export it from the current app first.' };
+      }
+    }
+    if (Array.isArray(raw.customProviders) && raw.customProviders.length) {
+      return { ok: false, error: 'This config contains plaintext custom providers. Export it from the current app first.' };
+    }
+    if (!canEncrypt()) return { ok: false, error: 'Encryption is unavailable on this machine' };
+    if (raw.secrets != null) {
+      if (typeof raw.secrets !== 'object' || Array.isArray(raw.secrets)) return { ok: false, error: 'Invalid secrets block' };
+      for (const value of Object.values(raw.secrets)) {
+        if (typeof value !== 'string' || !value) continue;
+        try {
+          safeStorage.decryptString(Buffer.from(value, 'base64'));
+        } catch (_) {
+          return { ok: false, error: 'This config was encrypted by another Windows user or machine' };
+        }
+      }
+    }
+    if (typeof raw.customProvidersEnc === 'string' && raw.customProvidersEnc) {
+      try {
+        const specs = JSON.parse(safeStorage.decryptString(Buffer.from(raw.customProvidersEnc, 'base64')));
+        if (!Array.isArray(specs)) throw new Error('not an array');
+      } catch (_) {
+        return { ok: false, error: 'This config was encrypted by another Windows user or machine' };
+      }
+    }
+    backupConfig('before-import');
+    writeJsonAtomic(cfgPath(), raw);
+    restartSoon();
+    return { ok: true, restarting: true };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+}
+
+function resetConfig() {
+  try {
+    backupConfig('before-reset');
+    cfg = { ...DEFAULTS, configVersion: CONFIG_VERSION, enabled: { ...DEFAULTS.enabled }, customProviders: [], hiddenWindows: {} };
+    customSpecsLocked = false;
+    rebuildRegistry([]);
+    delete cfg.customProvidersEnc;
+    app.setLoginItemSettings({ openAtLogin: false });
+    saveCfg();
+    restartSoon();
+    return { ok: true, restarting: true };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+}
+
 // ---------- IPC ----------
 ipcMain.handle('state', () => state);
-ipcMain.handle('refresh', (_e, id) => refresh(id ? [id] : undefined));
+ipcMain.handle('refresh', (_e, id) => refresh(id ? [id] : undefined, true));
 ipcMain.handle('login', (_e, id) => openLogin(id));
 ipcMain.handle('logout', async (_e, id) => {
   await clearSession(id);
   if (id === 'claude') resetClaudeOrg();
-  await refresh([id]);
+  await refresh([id], true);
 });
 ipcMain.handle('open-config', async () => {
   if (!fs.existsSync(cfgPath())) saveCfg();
   shell.showItemInFolder(cfgPath());
 });
+ipcMain.handle('backup-config', () => {
+  const file = backupConfig('manual');
+  return file ? { ok: true, path: file } : { ok: false, error: 'Could not create a backup' };
+});
+ipcMain.handle('export-config', (event) => exportConfig(event));
+ipcMain.handle('import-config', (event) => importConfig(event));
+ipcMain.handle('reset-config', () => resetConfig());
 ipcMain.handle('save-custom-provider', async (_e, input) => {
   const result = saveCustomProvider(input);
-  if (result.ok) await refresh();
+  if (result.ok) await refresh(undefined, true);
   return result;
 });
 ipcMain.handle('test-custom-provider', (_e, input) => testCustomProvider(input));
@@ -458,7 +728,7 @@ ipcMain.handle('copy-text', (_e, text) => {
 });
 ipcMain.handle('delete-custom-provider', async (_e, id) => {
   const result = deleteCustomProvider(id);
-  if (result.ok) await refresh();
+  if (result.ok) await refresh(undefined, true);
   return result;
 });
 ipcMain.handle('toggle-pin', () => setPinned(!state.pinned));
@@ -492,6 +762,16 @@ ipcMain.handle('set-config', async (_e, patch) => {
     }
     cfg.hiddenWindows = clean;
   }
+  if (patch.providerIntervals && typeof patch.providerIntervals === 'object') {
+    const clean = {};
+    for (const p of getProviders()) {
+      if (!(p.id in patch.providerIntervals)) continue;
+      const v = num(patch.providerIntervals[p.id]);
+      if (v && v >= 1 && v <= 240) clean[p.id] = v;
+    }
+    cfg.providerIntervals = clean;
+  }
+  if ('notify' in patch) cfg.notify = !!patch.notify;
   // Provider-declared settings: only known keys are accepted and validated by type.
   for (const field of SETTING_FIELDS) {
     if (!(field.key in patch)) continue;
@@ -506,7 +786,7 @@ ipcMain.handle('set-config', async (_e, patch) => {
   state.providerMeta = settingsMeta(getProviders(), cfg);
   push();
   buildTrayMenu();
-  await refresh();
+  await refresh(undefined, true);
 });
 ipcMain.handle('hide', () => win && win.hide());
 ipcMain.on('resize', (_e, h) => {

@@ -2,6 +2,21 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.9.0
+
+### Added
+
+- The custom provider guided editor supports multiple usage windows and note values, with Add/Remove rows.
+- Configuration backup, export, import and reset in Settings. Import and reset create a backup first and restart the app.
+- Windows notifications when a window reaches 90% or a quota renews, with a mute switch in Settings and the tray menu.
+- Per-provider diagnostics: last success, latency, failures, next retry and last error, with a **Copy diagnostic** action that never includes secrets.
+- Per-provider refresh intervals, jitter and exponential backoff for failing providers.
+
+### Changed
+
+- Custom provider specs, including headers and body, are encrypted at rest. The plaintext `customProviders` field is migrated to an encrypted `customProvidersEnc` blob (config version 2).
+- The app backs up `config.json` before a config-version migration.
+
 ## 0.8.0
 
 ### Added

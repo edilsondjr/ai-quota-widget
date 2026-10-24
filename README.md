@@ -11,9 +11,11 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows and key fields; plus refresh interval, language, always-on-top, start with Windows and custom providers (guided form or JSON spec, templates and import/export).
+- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications and custom providers (guided form or JSON spec, templates and import/export).
+- Each service can override the global refresh interval. Failed updates back off exponentially (up to 60 minutes), while the last reading stays visible marked stale.
+- Optional notifications at 90% and on renewal, with a mute switch in Settings and the tray.
 - System tray icon; the window remembers its position.
-- Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json` and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the keys in plain text. Nothing is sent anywhere except to the services themselves.
+- Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json`, the encrypted-custom-provider blob and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys and custom-provider specs are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the values in plain text. Nothing is sent anywhere except to the services themselves.
 
 ## Install
 
@@ -77,9 +79,9 @@ Notes:
 
 ## Custom providers
 
-If a service is not built in, add it in **Settings → Custom providers → Add custom provider**. New providers open in the guided form: name, URL, method, auth, optional headers/body, one usage window, a note and a plan path. Use **Template** to start from usage, balance or monthly cost, and **Copy JSON** / **Load JSON** to move a spec between machines. The API key is never included in the copied spec.
+If a service is not built in, add it in **Settings → Custom providers → Add custom provider**. New providers open in the guided form: name, URL, method, auth, optional headers/body, one or more usage windows, note values and a plan path. Use **Add window** / **Add note value** for providers with multiple limits. Use **Template** to start from usage, balance or monthly cost, and **Copy JSON** / **Load JSON** to move a spec between machines. The API key is never included in the copied spec.
 
-For specs with more than one window or note value, switch to **JSON** and edit the full mapping. Use **Test** before saving to fetch the URL and preview the parsed windows/note, or see the error; Test does not create the provider.
+**JSON** remains available for exact editing. Use **Test** before saving to fetch the URL and preview the parsed windows/note, or see the error; Test does not create the provider.
 
 ```json
 {
@@ -104,7 +106,18 @@ For specs with more than one window or note value, switch to **JSON** and edit t
 - Each window needs `key` and `percent`; `label`, `resetsAt` and `detail` are optional.
 - A note template can use `{name}` values resolved from `mapping.note.values`.
 - The provider must return JSON over HTTPS (HTTP is allowed only for localhost); requests time out after 15 seconds.
-- The spec is stored as-is in `~/.quotawidget/config.json`; only the API key field is encrypted. Do not put secrets in `headers` or `body`.
+- The whole spec, including `headers` and `body`, is encrypted at rest in `~/.quotawidget/config.json` (`customProvidersEnc`). Prefer the API key field for secrets; the spec is encrypted as defense in depth.
+
+## Backup and restore
+
+**Settings → Configuration** can:
+
+- **Back up config** — copy the encrypted `config.json` to `~/.quotawidget/backups/` (the last 10 are kept).
+- **Export config** — save the encrypted config to a JSON file.
+- **Import config** — restore a previous export. Files with plaintext keys or custom specs are rejected, a backup of the current config is created first, and the app restarts.
+- **Reset settings** — remove settings, keys and custom providers after a backup, and disable start with Windows.
+
+Config version 2 stores custom-provider specs in `customProvidersEnc`. Existing plaintext `customProviders` configs are migrated automatically, and a backup is created before a version migration.
 
 ## Privacy and responsibility
 

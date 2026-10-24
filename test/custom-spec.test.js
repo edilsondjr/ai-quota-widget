@@ -14,14 +14,16 @@ test('custom-spec: builds a spec from guided fields', () => {
     authPrefix: 'Token ',
     headers: { Accept: 'application/json' },
     body: '{"range":"30d"}',
-    windowKey: 'month',
-    windowLabel: 'Month',
-    percent: 'data.percent',
-    scale: 'fraction',
-    resetsAt: 'data.reset',
-    detail: 'data.detail',
-    noteTemplate: 'Balance: {amount}',
-    noteAmountPath: 'data.balance',
+    windows: [
+      { key: 'month', label: 'Month', percent: 'data.percent', scale: 'fraction', resetsAt: 'data.reset', detail: 'data.detail' },
+      { key: 'week', label: 'Week', percent: 'data.week' },
+    ],
+    noteTemplate: 'Balance: {amount} / {currency}',
+    noteValues: [
+      { name: 'amount', path: 'data.balance' },
+      { name: 'currency', path: 'data.currency' },
+      { name: 'ignored', path: '' },
+    ],
     plan: 'data.plan',
   });
   assert.equal(spec.name, 'My API');
@@ -34,28 +36,49 @@ test('custom-spec: builds a spec from guided fields', () => {
   assert.equal(spec.body, '{"range":"30d"}');
   assert.deepEqual(spec.mapping.windows, [
     { key: 'month', label: 'Month', percent: 'data.percent', scale: 'fraction', resetsAt: 'data.reset', detail: 'data.detail' },
+    { key: 'week', label: 'Week', percent: 'data.week', resetsAt: null, detail: null },
   ]);
-  assert.deepEqual(spec.mapping.note, { template: 'Balance: {amount}', values: { amount: 'data.balance' } });
+  assert.deepEqual(spec.mapping.note, {
+    template: 'Balance: {amount} / {currency}',
+    values: { amount: 'data.balance', currency: 'data.currency' },
+  });
   assert.equal(spec.mapping.plan, 'data.plan');
 });
 
-test('custom-spec: guided fields round-trip a simple spec', () => {
-  const original = TEMPLATES.usage;
-  const { guided, complex } = toGuided(original);
-  assert.equal(complex, false);
-  assert.deepEqual(buildSpec(guided), original);
-
-  const balance = toGuided(TEMPLATES.balance);
-  assert.equal(balance.complex, false);
-  assert.deepEqual(buildSpec(balance.guided), TEMPLATES.balance);
+test('custom-spec: guided fields round-trip simple specs', () => {
+  for (const original of [TEMPLATES.usage, TEMPLATES.balance, TEMPLATES.cost]) {
+    const { guided } = toGuided(original);
+    assert.deepEqual(buildSpec(guided), original);
+  }
 });
 
-test('custom-spec: marks multiple windows or note values as complex', () => {
-  const twoWindows = { mapping: { windows: [{ key: 'a', percent: 'a' }, { key: 'b', percent: 'b' }] } };
-  assert.equal(toGuided(twoWindows).complex, true);
-
-  const twoValues = { mapping: { note: { template: '{a} {b}', values: { a: 'x', b: 'y' } } } };
-  assert.equal(toGuided(twoValues).complex, true);
+test('custom-spec: keeps multiple windows and note values', () => {
+  const spec = {
+    mapping: {
+      windows: [
+        { key: 'five_hour', label: '5 h', percent: 'a', scale: 'fraction' },
+        { key: 'week', label: 'Week', percent: 'b' },
+      ],
+      note: { template: '{used} / {limit}', values: { used: 'u', limit: 'l' } },
+    },
+  };
+  const { guided } = toGuided(spec);
+  assert.equal(guided.windows.length, 2);
+  assert.equal(guided.noteValues.length, 2);
+  assert.deepEqual(buildSpec(guided), {
+    name: '',
+    url: '',
+    method: 'GET',
+    auth: 'bearer',
+    headers: {},
+    mapping: {
+      windows: [
+        { key: 'five_hour', label: '5 h', percent: 'a', scale: 'fraction', resetsAt: null, detail: null },
+        { key: 'week', label: 'Week', percent: 'b', resetsAt: null, detail: null },
+      ],
+      note: { template: '{used} / {limit}', values: { used: 'u', limit: 'l' } },
+    },
+  });
 });
 
 test('custom-spec: keeps optional fields out of the built spec', () => {

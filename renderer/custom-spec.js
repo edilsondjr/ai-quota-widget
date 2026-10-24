@@ -9,12 +9,9 @@
   function toGuided(spec = {}) {
     const mapping = spec.mapping || {};
     const windows = Array.isArray(mapping.windows) ? mapping.windows : [];
-    const w = windows[0] || {};
     const note = mapping.note || {};
     const values = note.values && typeof note.values === 'object' ? note.values : {};
-    const valueNames = Object.keys(values);
     return {
-      complex: windows.length > 1 || valueNames.length > 1,
       guided: {
         name: spec.name || '',
         url: spec.url || '',
@@ -24,14 +21,16 @@
         authPrefix: spec.authPrefix || '',
         headers: JSON.stringify(spec.headers || {}, null, 2),
         body: spec.body || '',
-        windowKey: w.key || '',
-        windowLabel: w.label || '',
-        percent: w.percent || '',
-        scale: w.scale === 'fraction' ? 'fraction' : 'percent',
-        resetsAt: w.resetsAt || '',
-        detail: w.detail || '',
+        windows: windows.map((w) => ({
+          key: w.key || '',
+          label: w.label || '',
+          percent: w.percent || '',
+          scale: w.scale === 'fraction' ? 'fraction' : 'percent',
+          resetsAt: w.resetsAt || '',
+          detail: w.detail || '',
+        })),
         noteTemplate: note.template || '',
-        noteAmountPath: valueNames.length ? values[valueNames[0]] : '',
+        noteValues: Object.entries(values).map(([name, path]) => ({ name, path: String(path) })),
         plan: mapping.plan || '',
       },
     };
@@ -51,20 +50,27 @@
       spec.authPrefix = String(g.authPrefix || '');
     }
     if (spec.method === 'POST' && g.body) spec.body = String(g.body);
-    if (g.windowKey && g.percent) {
+
+    for (const w of Array.isArray(g.windows) ? g.windows : []) {
+      if (!w || !String(w.key || '').trim() || !String(w.percent || '').trim()) continue;
       const window = {
-        key: String(g.windowKey).trim(),
-        label: String(g.windowLabel || '').trim() || null,
-        percent: String(g.percent).trim(),
-        resetsAt: String(g.resetsAt || '').trim() || null,
-        detail: String(g.detail || '').trim() || null,
+        key: String(w.key).trim(),
+        label: String(w.label || '').trim() || null,
+        percent: String(w.percent).trim(),
+        resetsAt: String(w.resetsAt || '').trim() || null,
+        detail: String(w.detail || '').trim() || null,
       };
-      if (g.scale === 'fraction') window.scale = 'fraction';
+      if (w.scale === 'fraction') window.scale = 'fraction';
       spec.mapping.windows.push(window);
     }
+
     if (g.noteTemplate) {
       const values = {};
-      if (g.noteAmountPath) values.amount = String(g.noteAmountPath).trim();
+      for (const v of Array.isArray(g.noteValues) ? g.noteValues : []) {
+        const name = String((v && v.name) || '').trim();
+        const valuePath = String((v && v.path) || '').trim();
+        if (name && valuePath) values[name] = valuePath;
+      }
       spec.mapping.note = { template: String(g.noteTemplate).trim(), values };
     }
     if (g.plan) spec.mapping.plan = String(g.plan).trim();
