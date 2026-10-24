@@ -29,3 +29,25 @@ jobs:
         with:
           files: dist/*.exe
           generate_release_notes: true
+
+  # Opens a pull request on microsoft/winget-pkgs for the new version.
+  # Off by default. It only works after the first version of the package has been
+  # accepted (see winget/README.md). To turn it on:
+  #   1. Create a classic personal access token with the `public_repo` scope and save it
+  #      as the repository secret WINGET_TOKEN.
+  #   2. Add the repository variable WINGET_PUBLISH with the value `true`.
+  winget:
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/v') && vars.WINGET_PUBLISH == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Submit to winget-pkgs
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $version = $TAG.TrimStart('v')
+          $url = "https://github.com/${{ github.repository }}/releases/download/$TAG/Quota-Widget-Setup-$version.exe"
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update BeamGlyph.QuotaWidget --version $version --urls $url --submit --token $env:WINGET_TOKEN
