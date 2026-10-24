@@ -2,6 +2,18 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.10.0
+
+### Added
+
+- Custom provider mappings can use safe expressions starting with `=` (paths, arithmetic, `Math.*`, `Number`/`String`/`Boolean`/`parseInt`/`parseFloat`/`isFinite`, `toFixed`/`toLocaleString`, comparisons and ternaries). Expressions never use `eval`/`Function` and cannot reach Node APIs.
+- The custom provider editor has a **?** help panel with the supported paths, functions, methods, operators and examples.
+- Expression failures are shown as `Expression failed: …` in Test and on the card.
+
+### Changed
+
+- Mapping fields accept either dot/bracket paths or a safe `=expression`; the guided form accepts expressions too.
+
 ## 0.9.0
 
 ### Added

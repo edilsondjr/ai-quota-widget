@@ -1,6 +1,6 @@
 {
   "name": "quota-widget",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Always-on-top Windows widget that tracks your AI usage quotas across providers, with reset countdowns",
   "main": "main.js",
   "scripts": {
@@ -69,5 +69,8 @@
     "chatgpt",
     "codex",
     "ollama"
-  ]
+  ],
+  "dependencies": {
+    "jsep": "^1.6.0"
+  }
 }

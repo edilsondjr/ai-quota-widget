@@ -518,8 +518,36 @@ function customScreen(target) {
   guidedBtn.type = 'button';
   const jsonBtn = el('button', 'btn', t('s.custom_json_mode'));
   jsonBtn.type = 'button';
-  modeRow.append(guidedBtn, jsonBtn);
+  const helpBtn = el('button', 'link help-btn', '?');
+  helpBtn.type = 'button';
+  helpBtn.title = t('s.custom_expr_help');
+  helpBtn.setAttribute('aria-label', t('s.custom_expr_help'));
+  helpBtn.setAttribute('aria-expanded', 'false');
+  modeRow.append(guidedBtn, jsonBtn, el('span', 'spacer'), helpBtn);
   form.append(modeRow);
+
+  const helpPanel = el('div', 'help-panel');
+  helpPanel.hidden = true;
+  helpPanel.append(
+    el('h3', null, t('s.custom_expr_help_title')),
+    el('div', 'hint', t('s.custom_expr_help_intro')),
+    el('div', 'hint', t('s.custom_expr_help_paths')),
+    el('div', 'hint', t('s.custom_expr_help_math')),
+    el('div', 'hint', t('s.custom_expr_help_functions')),
+    el('div', 'hint', t('s.custom_expr_help_methods')),
+    el('div', 'hint', t('s.custom_expr_help_ops')),
+    el('div', 'hint', t('s.custom_expr_help_where')),
+    el('div', 'hint', t('s.custom_expr_help_examples'))
+  );
+  const helpExamples = el('div', 'help-examples');
+  for (const line of t('s.custom_expr_help_example_lines').split('\n')) helpExamples.append(el('code', 'help-code', line));
+  helpPanel.append(helpExamples);
+  form.append(helpPanel);
+  helpBtn.onclick = () => {
+    helpPanel.hidden = !helpPanel.hidden;
+    helpBtn.setAttribute('aria-expanded', String(!helpPanel.hidden));
+    fitWindow();
+  };
 
   const templateSel = document.createElement('select');
   for (const [key, label] of [['usage', t('s.custom_template_usage')], ['balance', t('s.custom_template_balance')], ['cost', t('s.custom_template_cost')]]) {

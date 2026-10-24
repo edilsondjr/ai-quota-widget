@@ -1,9 +1,12 @@
 // User-defined providers. A custom provider is a small data-driven spec stored in
-// config.json; no user code is evaluated. Responses are mapped with dot/bracket paths.
+// config.json; no arbitrary user code is evaluated. Responses are mapped with
+// dot/bracket paths or a safe expression subset (see providers/expression.js).
 const { num, toMs } = require('./util');
 const { netFetch } = require('./browser');
+const { isExpression, validateExpression, evaluateExpression } = require('./expression');
 
 const MAX_SPEC = 20000;
+const MAX_EXPR = 600;
 
 // Resolve "data.items[0].value" (or "$.data.items[0].value") against a JSON object.
 function getPath(obj, path) {
@@ -21,15 +24,29 @@ function getPath(obj, path) {
   return cur;
 }
 
+// A mapping value is either a dot/bracket path or a safe expression starting with "=".
+function resolve(value, data) {
+  if (value == null) return undefined;
+  return isExpression(value) ? evaluateExpression(String(value).trim().slice(1), data) : getPath(data, value);
+}
+
 function parseCustom(spec, body) {
+  try {
+    return parseCustomInner(spec, body);
+  } catch (e) {
+    return { error: 'custom_expression', errorParams: { message: e && e.message ? e.message : String(e) } };
+  }
+}
+
+function parseCustomInner(spec, body) {
   const mapping = (spec && spec.mapping) || {};
   const windows = [];
   for (const w of mapping.windows || []) {
-    const value = num(getPath(body, w.percent));
+    const value = num(resolve(w.percent, body));
     if (value == null) continue;
     const percent = w.scale === 'fraction' ? value * 100 : value;
-    const reset = w.resetsAt ? getPath(body, w.resetsAt) : null;
-    const detail = w.detail ? getPath(body, w.detail) : null;
+    const reset = w.resetsAt ? resolve(w.resetsAt, body) : null;
+    const detail = w.detail ? resolve(w.detail, body) : null;
     windows.push({
       key: w.key,
       label: w.label || null,
@@ -43,18 +60,24 @@ function parseCustom(spec, body) {
   if (mapping.note && mapping.note.template) {
     const values = {};
     for (const [name, path] of Object.entries(mapping.note.values || {})) {
-      const value = getPath(body, path);
+      const value = resolve(path, body);
       values[name] = value == null ? '' : String(value);
     }
     noteText = String(mapping.note.template).replace(/\{(\w+)\}/g, (m, name) => (values[name] != null ? values[name] : m));
   }
 
-  const planValue = mapping.plan ? getPath(body, mapping.plan) : null;
+  const planValue = mapping.plan ? resolve(mapping.plan, body) : null;
   if (!windows.length && !noteText) return { error: 'custom_no_data' };
   return { windows, plan: planValue == null ? null : String(planValue), noteText };
 }
 
 const isPath = (v) => typeof v === 'string' && v.trim().length > 0 && v.length <= 200;
+const isValue = (v) => {
+  if (typeof v !== 'string') return false;
+  const clean = v.trim();
+  if (clean.startsWith('=')) return clean.length <= MAX_EXPR && validateExpression(clean.slice(1));
+  return isPath(v);
+};
 
 // Validate and normalize the spec sent by the settings UI. Returns { ok, spec } or { ok: false, error }.
 function normalizeSpec(input) {
@@ -121,15 +144,15 @@ function normalizeSpec(input) {
     if (!/^[A-Za-z0-9_-]{1,40}$/.test(key)) return { ok: false, error: 'Window key is invalid' };
     if (seen.has(key)) return { ok: false, error: `Duplicate window key: ${key}` };
     seen.add(key);
-    if (!isPath(w.percent)) return { ok: false, error: `Window ${key}: percent path is required` };
+    if (!isValue(w.percent)) return { ok: false, error: `Window ${key}: percent path or expression is required` };
     const label = typeof w.label === 'string' ? w.label.trim().slice(0, 40) : '';
     windows.push({
       key,
       label: label || null,
       percent: w.percent.trim(),
       scale: String(w.scale || '').toLowerCase() === 'fraction' ? 'fraction' : 'percent',
-      resetsAt: isPath(w.resetsAt) ? w.resetsAt.trim() : null,
-      detail: isPath(w.detail) ? w.detail.trim() : null,
+      resetsAt: isValue(w.resetsAt) ? w.resetsAt.trim() : null,
+      detail: isValue(w.detail) ? w.detail.trim() : null,
     });
   }
 
@@ -145,7 +168,7 @@ function normalizeSpec(input) {
       }
       for (const [key, path] of Object.entries(mapping.note.values)) {
         if (!/^\w+$/.test(key)) return { ok: false, error: `Invalid note value name: ${key}` };
-        if (!isPath(path)) return { ok: false, error: `Note value ${key} needs a path` };
+        if (!isValue(path)) return { ok: false, error: `Note value ${key} needs a path or expression` };
         values[key] = path.trim();
       }
     }
@@ -153,7 +176,7 @@ function normalizeSpec(input) {
   }
 
   if (!windows.length && !note) return { ok: false, error: 'Add at least one window or a note' };
-  const plan = isPath(mapping.plan) ? mapping.plan.trim() : null;
+  const plan = isValue(mapping.plan) ? mapping.plan.trim() : null;
   return { ok: true, spec: { name, url, method, auth, authHeader, authPrefix, headers, body, mapping: { windows, note, plan } } };
 }
 

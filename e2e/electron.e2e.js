@@ -96,11 +96,15 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
 
   // Add again using the guided form; the local server handles the test request.
   await add.click();
+  await page.getByRole('button', { name: 'Expression help', exact: true }).click();
+  await page.getByText('Safe expressions', { exact: true }).waitFor();
+  await page.getByText('=Math.round(data.subscription.generations)', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Expression help', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Local test');
   await page.getByLabel('URL', { exact: true }).fill(`http://127.0.0.1:${port}/usage`);
   await page.locator('#custom-auth').selectOption('none');
   await page.getByLabel('Note template', { exact: true }).fill('Balance: {amount}');
-  await page.locator('#custom-note-value-0-path').fill('data.balance');
+  await page.locator('#custom-note-value-0-path').fill('=Math.round(data.data.balance)');
   await page.getByRole('button', { name: 'Add window', exact: true }).click();
   await page.locator('#custom-window-1-key').fill('week');
   await page.locator('#custom-window-1-label').fill('Week');
@@ -109,10 +113,12 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.locator('#custom-spec').waitFor();
   assert.match(await page.locator('#custom-spec').inputValue(), /"name": "Local test"/);
   assert.match(await page.locator('#custom-spec').inputValue(), /"key": "week"/);
+  assert.match(await page.locator('#custom-spec').inputValue(), /"amount": "=Math\.round\(data\.data\.balance\)"/);
   await page.getByRole('button', { name: 'Test' }).click();
   await page.getByText('Response parsed successfully:').waitFor();
   await page.getByText('Month: 42.0%').waitFor();
   await page.getByText('Week: 42.0%').waitFor();
+  await page.getByText('Balance: 13').waitFor();
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByText('Local test').waitFor();
   await page.getByText('Edit custom provider').waitFor();
@@ -131,7 +137,7 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByRole('button', { name: 'Add custom provider' }).waitFor();
   await page.click('#btn-config');
   await page.locator('#list').getByText('Local test').waitFor();
-  await page.locator('#list').getByText('Balance: 12.5').waitFor();
+  await page.locator('#list').getByText('Balance: 13').waitFor();
 
   // Delete from the detail, accepting the confirm dialog.
   await page.click('#btn-config');

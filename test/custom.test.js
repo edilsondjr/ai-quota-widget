@@ -76,6 +76,52 @@ test('custom: normalizeSpec applies defaults and validates URLs and mappings', (
   );
 });
 
+test('custom: parseCustom supports safe expressions', () => {
+  const spec = {
+    mapping: {
+      windows: [
+        { key: 'gen', label: 'Generations', percent: '=data.subscription.generations / data.subscription.total * 100' },
+      ],
+      note: {
+        template: 'Balance: {balance}',
+        values: { balance: '=Math.round(data.subscription.generations).toLocaleString("en-US")' },
+      },
+      plan: 'subscription.plan',
+    },
+  };
+  const body = {
+    subscription: { plan: 'Tier 3: Pixel Architect', generations: 3101.99999999999, total: 9000 },
+  };
+  const r = parseCustom(spec, body);
+  assert.equal(r.plan, 'Tier 3: Pixel Architect');
+  assert.ok(Math.abs(r.windows[0].percent - 34.4666) < 0.01);
+  assert.equal(r.noteText, 'Balance: 3,102');
+});
+
+test('custom: expression errors are reported as custom_expression', () => {
+  const r = parseCustom({ mapping: { windows: [{ key: 'x', percent: '=data.constructor' }] } }, { data: {} });
+  assert.equal(r.error, 'custom_expression');
+  assert.match(r.errorParams.message, /not allowed/);
+});
+
+test('custom: normalizeSpec validates expressions and rejects unsafe ones', () => {
+  const ok = normalizeSpec({
+    name: 'x',
+    url: 'https://x.test',
+    mapping: { windows: [{ key: 'm', percent: '=Math.round(data.percent)' }], note: { template: '{v}', values: { v: '=data.value.toFixed(1)' } } },
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.spec.mapping.windows[0].percent, '=Math.round(data.percent)');
+  assert.equal(ok.spec.mapping.note.values.v, '=data.value.toFixed(1)');
+
+  const bad = normalizeSpec({
+    name: 'x',
+    url: 'https://x.test',
+    mapping: { windows: [{ key: 'm', percent: '=data.constructor.constructor("return 1")()' }] },
+  });
+  assert.equal(bad.ok, false);
+});
+
 test('custom: buildCustomProvider declares the API key only when auth is used', () => {
   const base = { id: 'custom_x', name: 'X', keyName: 'custom_xApiKey' };
   assert.deepEqual(buildCustomProvider({ ...base, auth: 'bearer' }).settings, [{ key: 'custom_xApiKey', type: 'secret' }]);

@@ -164,6 +164,12 @@ body { padding: 8px; }
 .mode-row { display: flex; gap: 6px; margin: 8px 0 4px; }
 .mode-row .btn { padding: 4px 10px; font-size: 12px; }
 .mode-row .btn.on { color: var(--accent); border-color: var(--accent); background: rgba(122, 162, 255, 0.12); }
+.help-btn { width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
+.help-btn:hover { text-decoration: none; background: var(--track); color: var(--text); }
+.help-panel { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 8px 0; background: rgba(255, 255, 255, 0.03); user-select: text; }
+.help-panel .hint { white-space: pre-line; line-height: 1.5; }
+.help-examples { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.help-code { display: block; font: 11px/1.4 Consolas, "Cascadia Mono", monospace; color: var(--accent); background: var(--track); border-radius: 4px; padding: 3px 5px; overflow-wrap: anywhere; }
 .custom-tools { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
 .custom-tools .btn { padding: 4px 10px; font-size: 12px; }
 .guided { display: flex; flex-direction: column; }

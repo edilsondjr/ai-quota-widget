@@ -108,6 +108,61 @@ If a service is not built in, add it in **Settings → Custom providers → Add 
 - The provider must return JSON over HTTPS (HTTP is allowed only for localhost); requests time out after 15 seconds.
 - The whole spec, including `headers` and `body`, is encrypted at rest in `~/.quotawidget/config.json` (`customProvidersEnc`). Prefer the API key field for secrets; the spec is encrypted as defense in depth.
 
+### Safe expressions
+
+Any mapping value can be a path or a safe expression starting with `=`. Expressions are evaluated by a small whitelist, not by `eval`/`Function`, so a spec cannot access Node APIs.
+
+- `data` is the whole response; top-level keys also work directly.
+- Math: `round`, `floor`, `ceil`, `abs`, `min`, `max`, `pow`, `sqrt`.
+- Functions: `Number`, `String`, `Boolean`, `parseInt`, `parseFloat`, `isFinite`.
+- Methods: `toFixed`, `toLocaleString`, `trim`, `toUpperCase`, `toLowerCase`.
+- Operators: `+ - * / % **`, comparisons, `&& || !`, ternary `? :`.
+- Not available: `require`, `process`, `Function`, constructors, assignment or loops.
+
+For a response like:
+
+```json
+{
+  "credits": { "type": "usd", "usd": 0.0 },
+  "subscription": {
+    "type": "generations",
+    "status": "active",
+    "plan": "Tier 3: Pixel Architect",
+    "generations": 3101.99999999999,
+    "total": 9000.0
+  }
+}
+```
+
+use paths for plain values and expressions for formatting or calculation:
+
+```json
+{
+  "name": "My provider",
+  "url": "https://api.example.com/usage",
+  "auth": "bearer",
+  "mapping": {
+    "plan": "subscription.plan",
+    "windows": [
+      {
+        "key": "generations",
+        "label": "Generations",
+        "percent": "=data.subscription.generations / data.subscription.total * 100",
+        "detail": "=Math.round(data.subscription.generations) + ' / ' + data.subscription.total"
+      }
+    ],
+    "note": {
+      "template": "Balance: {balance}",
+      "values": {
+        "balance": "=Math.round(data.subscription.generations).toLocaleString(\"en-US\")"
+      }
+    }
+  }
+}
+```
+
+This produces a ~34.5% bar and `Balance: 3,102`. The editor's **?** button opens the same reference.
+
 ## Backup and restore
 
 **Settings → Configuration** can:
