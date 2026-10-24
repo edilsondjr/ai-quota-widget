@@ -19,3 +19,13 @@ jobs:
       # The tests are plain Node (no Electron), so skip the Electron binary download.
       - run: npm ci --ignore-scripts
       - run: npm test
+
+  e2e:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run test:e2e

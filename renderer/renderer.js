@@ -1,6 +1,3 @@
-const ORDER = ['claude', 'chatgpt', 'commandcode', 'ollama'];
-const NAMES = { claude: 'Claude', chatgpt: 'ChatGPT', commandcode: 'Command Code', ollama: 'Ollama' };
-
 const $ = (s) => document.querySelector(s);
 const list = $('#list');
 const foot = $('#foot');
@@ -9,6 +6,8 @@ let last = null;
 let inSettings = false;
 let t = (k) => k;
 let lang = 'en-US';
+let draft = null;
+let view = 'main';
 
 // Strings come from the main process (locales/*.json) along with the state.
 function applyStrings(state) {
@@ -71,7 +70,7 @@ function windowEl(w) {
   const pct = Math.max(0, Math.min(100, w.percent || 0));
   const box = el('div', 'win');
   const row = el('div', 'row');
-  row.append(el('span', 'lbl', winLabel(w.key)), el('span', 'pct', `${pct.toFixed(pct < 10 ? 1 : 0)}%`));
+  row.append(el('span', 'lbl', w.label || winLabel(w.key)), el('span', 'pct', `${pct.toFixed(pct < 10 ? 1 : 0)}%`));
   const track = el('div', 'track');
   const fill = el('div', `fill ${level(pct)}`);
   fill.style.width = `${pct}%`;
@@ -82,11 +81,16 @@ function windowEl(w) {
   return box;
 }
 
+function metaFor(id) {
+  return ((last && last.providerMeta) || []).find((m) => m.id === id) || { id, name: id, canLogin: false, custom: false, fields: [], values: {}, secrets: {} };
+}
+
 function card(id, p, cfg) {
   const hidden = (cfg.hiddenWindows && cfg.hiddenWindows[id]) || [];
+  const meta = metaFor(id);
   const box = el('div', 'prov');
   const head = el('div', 'head');
-  head.append(el('span', 'name', NAMES[id]));
+  head.append(el('span', 'name', meta.name));
   if (p && p.plan) head.append(el('span', 'plan', String(p.plan)));
   head.append(el('span', 'spacer'));
   if (p && p.ok && p.canLogin) {
@@ -103,7 +107,9 @@ function card(id, p, cfg) {
   }
 
   if (p.windows && p.windows.length) p.windows.filter((w) => !hidden.includes(w.key)).forEach((w) => box.append(windowEl(w)));
-  if (p.note) box.append(el('div', 'note', providerText('note', p.note, p.noteParams)));
+  if (p.noteText) box.append(el('div', 'note', p.noteText));
+  else if (p.note) box.append(el('div', 'note', providerText('note', p.note, p.noteParams)));
+  if (p.stale) box.append(el('div', 'note', t('card.stale')));
 
   if (!p.ok) {
     const msg = el('div', 'err');
@@ -122,7 +128,7 @@ function card(id, p, cfg) {
       actions.append(b);
     } else if (p.action === 'key') {
       const b = el('button', 'link', t('card.configure_key'));
-      b.onclick = () => openSettings();
+      b.onclick = () => openSettings(id);
       actions.append(b);
     } else {
       const b = el('button', 'link', t('card.retry'));
@@ -148,14 +154,16 @@ function render(state) {
   applyStrings(state);
   const cfg = state.config || {};
   const enabled = cfg.enabled || {};
-  $('#btn-pin').classList.toggle('on', !!state.pinned);
+  const pin = $('#btn-pin');
+  pin.classList.toggle('on', !!state.pinned);
+  pin.setAttribute('aria-pressed', String(!!state.pinned));
   $('#btn-refresh').classList.toggle('spin', !!state.loading);
   const when = state.updatedAt
     ? t('foot.updated', { time: new Date(state.updatedAt).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) })
     : t('foot.updating');
   foot.textContent = state.version ? `${when} · v${state.version}` : when;
   if (inSettings) return; // don't rebuild the form while the user is editing
-  const ids = ORDER.filter((id) => enabled[id] !== false);
+  const ids = (state.providerMeta || []).map((m) => m.id).filter((id) => enabled[id] !== false);
   if (!ids.length) list.replaceChildren(el('div', 'err pad', t('list.none')));
   else list.replaceChildren(...ids.map((id) => card(id, state.providers[id], cfg)));
   fitWindow();
@@ -188,138 +196,754 @@ function textInput(type, value, placeholder) {
   return i;
 }
 
-function openSettings() {
+function fieldText(meta, f, suffix) {
+  const key = `p.${meta.id}.${f.key}${suffix}`;
+  const text = t(key);
+  return text === key ? null : text;
+}
+
+function statusText(meta, p) {
+  const secretSet = (meta.fields || []).some((f) => f.type === 'secret' && meta.secrets && meta.secrets[f.key]);
+  if (p && p.ok) return meta.canLogin ? t('s.status.signed_in') : t('s.status.key_set');
+  if (p && p.action === 'login') return t('s.status.signin_needed');
+  if (p && p.action === 'key') return t('s.status.needs_key');
+  if (secretSet) return t('s.status.key_set');
+  return meta.canLogin ? t('s.status.signin_needed') : t('s.status.needs_key');
+}
+
+function openSettings(providerId) {
   if (!last) return;
   inSettings = true;
+  view = providerId || 'main';
   const cfg = last.config || {};
-  const enabled = cfg.enabled || {};
-  const hidden = cfg.hiddenWindows || {};
+  draft = {
+    language: cfg.language || last.lang,
+    intervalMin: cfg.intervalMin == null ? 5 : cfg.intervalMin,
+    pinned: !!last.pinned,
+    openAtLogin: !!cfg.openAtLogin,
+    enabled: { ...(cfg.enabled || {}) },
+    hiddenWindows: JSON.parse(JSON.stringify(cfg.hiddenWindows || {})),
+    values: {},
+    secrets: {},
+    clear: {},
+  };
+  for (const m of last.providerMeta || []) {
+    for (const [k, v] of Object.entries(m.values || {})) draft.values[k] = v;
+  }
+  renderSettings();
+}
 
+function renderSettings() {
+  let content;
+  if (view === 'main') content = mainScreen();
+  else if (view === 'custom-new' || view.startsWith('custom:')) content = customScreen(view);
+  else content = detailScreen(view);
+  settings.replaceChildren(content);
+  settings.hidden = false;
+  list.hidden = true;
+  $('#btn-config').classList.add('on');
+  settings.scrollTop = 0;
+  fitWindow();
+}
+
+function mainScreen() {
   const form = el('div', 'form');
 
-  // 1) what to show
-  form.append(el('h3', null, t('s.show')));
-  const provChecks = {};
-  const winChecks = {};
-  for (const id of ORDER) {
-    const pc = check(NAMES[id], enabled[id] !== false, 'prov-chk');
-    provChecks[id] = pc.input;
-    form.append(pc.wrap);
-    winChecks[id] = [];
-    const keys = ((last.providers[id] && last.providers[id].windows) || []).map((w) => w.key);
-    // also include already-hidden windows that weren't in the last reading
-    for (const h of hidden[id] || []) if (!keys.includes(h)) keys.push(h);
-    keys.forEach((key) => {
-      const wc = check(winLabel(key), !(hidden[id] || []).includes(key), 'win-chk');
-      winChecks[id].push({ key, input: wc.input });
-      form.append(wc.wrap);
-    });
-  }
-
-  // 2) refresh
-  form.append(el('h3', null, t('s.refresh')));
-  const interval = textInput('number', cfg.intervalMin, '5');
-  interval.min = 1;
-  interval.max = 240;
-  form.append(field(t('s.interval'), interval));
-
-  // 3) accounts and keys
-  form.append(el('h3', null, t('s.keys')));
-  const ollamaKey = textInput('password', '', cfg.hasOllamaKey ? t('s.key_set_ph') : t('s.ollama_key_ph'));
-  form.append(field(t('s.ollama_key'), ollamaKey));
-  const ollamaDay = textInput('number', cfg.ollamaBillingDay, t('s.auto'));
-  ollamaDay.min = 1;
-  ollamaDay.max = 31;
-  form.append(field(t('s.ollama_day'), ollamaDay, t('s.ollama_day_hint')));
-  const ollamaCredits = textInput('number', cfg.ollamaMonthlyCredits, t('s.by_plan'));
-  ollamaCredits.min = 0;
-  form.append(field(t('s.ollama_credits'), ollamaCredits, t('s.ollama_credits_hint')));
-  const ccKey = textInput('password', '', cfg.hasCommandcodeKey ? t('s.key_set_ph') : t('s.cc_key_ph'));
-  form.append(field(t('s.cc_key'), ccKey));
-  const clear = el('div', 'clear-row');
-  if (cfg.hasOllamaKey) {
-    const b = el('button', 'link dim', t('s.remove_ollama'));
-    b.type = 'button';
-    b.onclick = () => {
-      ollamaKey.dataset.clear = '1';
-      ollamaKey.placeholder = t('s.will_remove_ph');
-      b.remove();
-    };
-    clear.append(b);
-  }
-  if (cfg.hasCommandcodeKey) {
-    const b = el('button', 'link dim', t('s.remove_cc'));
-    b.type = 'button';
-    b.onclick = () => {
-      ccKey.dataset.clear = '1';
-      ccKey.placeholder = t('s.will_remove_ph');
-      b.remove();
-    };
-    clear.append(b);
-  }
-  if (clear.children.length) form.append(clear);
-
-  // 4) general
-  form.append(el('h3', null, t('s.general')));
   const langSel = document.createElement('select');
   for (const l of last.languages || []) {
     const o = el('option', null, l.name);
     o.value = l.code;
-    o.selected = l.code === last.lang;
+    o.selected = l.code === draft.language;
     langSel.append(o);
   }
+  langSel.onchange = () => (draft.language = langSel.value);
   form.append(field(t('s.language'), langSel));
-  const pin = check(t('s.pin'), last.pinned);
-  const login = check(t('s.autostart'), cfg.openAtLogin);
-  const unknown = check(t('s.unknown'), cfg.claudeShowUnknown);
-  form.append(pin.wrap, login.wrap, unknown.wrap);
 
-  const actions = el('div', 'form-actions');
-  const save = el('button', 'btn primary', t('s.save'));
-  const cancel = el('button', 'btn', t('s.cancel'));
-  const file = el('button', 'link dim', t('s.open_config'));
-  save.onclick = async () => {
-    const enabledOut = {};
-    const hiddenOut = {};
-    for (const id of ORDER) {
-      enabledOut[id] = provChecks[id].checked;
-      const off = winChecks[id].filter((w) => !w.input.checked).map((w) => w.key);
-      if (off.length) hiddenOut[id] = off;
-    }
-    const patch = {
-      language: langSel.value,
-      enabled: enabledOut,
-      hiddenWindows: hiddenOut,
-      intervalMin: interval.value,
-      ollamaBillingDay: ollamaDay.value,
-      ollamaMonthlyCredits: ollamaCredits.value,
-      pinned: pin.input.checked,
-      openAtLogin: login.input.checked,
-      claudeShowUnknown: unknown.input.checked,
+  const interval = textInput('number', draft.intervalMin, '5');
+  interval.min = 1;
+  interval.max = 240;
+  interval.oninput = () => (draft.intervalMin = interval.value);
+  form.append(field(t('s.interval'), interval));
+
+  const pin = check(t('s.pin'), draft.pinned);
+  pin.input.onchange = () => (draft.pinned = pin.input.checked);
+  const login = check(t('s.autostart'), draft.openAtLogin);
+  login.input.onchange = () => (draft.openAtLogin = login.input.checked);
+  form.append(pin.wrap, login.wrap);
+
+  form.append(el('h3', null, t('s.services')));
+  for (const meta of last.providerMeta || []) {
+    const row = el('div', 'svc');
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = draft.enabled[meta.id] !== false;
+    toggle.onchange = () => (draft.enabled[meta.id] = toggle.checked);
+
+    const open = el('button', 'svc-main');
+    open.type = 'button';
+    open.append(
+      el('span', 'svc-name', meta.name),
+      el('span', 'spacer'),
+      el('span', 'svc-status', statusText(meta, last.providers[meta.id])),
+      el('span', 'svc-arrow', '›')
+    );
+    open.onclick = () => {
+      view = meta.id;
+      renderSettings();
     };
-    if (ollamaKey.value.trim()) patch.ollamaApiKey = ollamaKey.value;
-    else if (ollamaKey.dataset.clear) patch.ollamaApiKey = '';
-    if (ccKey.value.trim()) patch.commandcodeApiKey = ccKey.value;
-    else if (ccKey.dataset.clear) patch.commandcodeApiKey = '';
+
+    row.append(toggle, open);
+    form.append(row);
+  }
+
+  form.append(el('h3', null, t('s.custom')));
+  form.append(el('div', 'hint', t('s.custom_hint')));
+  const addCustom = el('button', 'btn', t('s.custom_add'));
+  addCustom.type = 'button';
+  addCustom.onclick = () => {
+    view = 'custom-new';
+    renderSettings();
+  };
+  form.append(addCustom);
+
+  form.append(actions());
+  return form;
+}
+
+function detailScreen(id) {
+  const meta = metaFor(id);
+  const form = el('div', 'form');
+
+  const head = el('div', 'form-head');
+  const back = el('button', 'back', '‹');
+  back.type = 'button';
+  back.title = t('s.back');
+  back.onclick = () => {
+    view = 'main';
+    renderSettings();
+  };
+  head.append(back, el('span', 'form-title', meta.name));
+  form.append(head);
+
+  const reading = last.providers[id];
+  const windows = (reading && reading.windows) || [];
+  const labels = {};
+  for (const w of windows) if (w.label) labels[w.key] = w.label;
+  const known = windows.map((w) => w.key);
+  const hidden = draft.hiddenWindows[id] || [];
+  for (const k of hidden) if (!known.includes(k)) known.push(k);
+
+  form.append(el('h3', null, t('s.windows')));
+  if (!known.length) form.append(el('div', 'hint', t('s.windows_empty')));
+  for (const key of known) {
+    const c = check(labels[key] || winLabel(key), !hidden.includes(key), 'win-chk');
+    c.input.onchange = () => {
+      const set = new Set(draft.hiddenWindows[id] || []);
+      if (c.input.checked) set.delete(key);
+      else set.add(key);
+      if (set.size) draft.hiddenWindows[id] = [...set];
+      else delete draft.hiddenWindows[id];
+    };
+    form.append(c.wrap);
+  }
+
+  if (meta.custom) {
+    form.append(el('h3', null, t('s.custom')));
+    form.append(el('div', 'hint', t('s.custom_detail')));
+    const row = el('div', 'custom-actions');
+    const edit = el('button', 'btn', t('s.custom_edit_button'));
+    edit.type = 'button';
+    edit.onclick = () => {
+      view = 'custom:' + id;
+      renderSettings();
+    };
+    const del = el('button', 'btn', t('s.custom_delete'));
+    del.type = 'button';
+    del.onclick = () => deleteCustom(id);
+    row.append(edit, del);
+    form.append(row);
+  } else {
+    const fields = meta.fields || [];
+    if (fields.length) {
+      form.append(el('h3', null, t('s.fields')));
+      for (const f of fields) form.append(fieldEl(meta, f));
+      if (fields.some((f) => f.type === 'secret')) form.append(el('div', 'hint', t('s.keys_local')));
+    }
+  }
+
+  form.append(actions());
+  return form;
+}
+
+function customScreen(target) {
+  const isNew = target === 'custom-new';
+  const id = isNew ? null : target.slice('custom:'.length);
+  const specs = (last.config && last.config.customProviders) || [];
+  const spec = isNew ? null : specs.find((s) => s.id === id);
+  const meta = isNew ? null : metaFor(id);
+  const form = el('div', 'form');
+
+  const head = el('div', 'form-head');
+  const back = el('button', 'back', '‹');
+  back.type = 'button';
+  back.title = t('s.back');
+  back.onclick = () => {
+    view = isNew ? 'main' : id;
+    renderSettings();
+  };
+  head.append(back, el('span', 'form-title', isNew ? t('s.custom_new') : t('s.custom_edit', { name: spec ? spec.name : id })));
+  form.append(head);
+
+  if (!isNew && !spec) {
+    form.append(el('div', 'err', t('s.custom_missing')));
+    form.append(actions());
+    return form;
+  }
+
+  const editable = spec ? { ...spec } : JSON.parse(JSON.stringify(window.customSpec.TEMPLATES.usage));
+  if (spec) {
+    delete editable.id;
+    delete editable.keyName;
+  }
+  const initial = window.customSpec.toGuided(editable);
+  let mode = initial.complex ? 'json' : 'guided';
+  let previousTemplate = 'usage';
+
+  const modeRow = el('div', 'mode-row');
+  const guidedBtn = el('button', 'btn', t('s.custom_guided'));
+  guidedBtn.type = 'button';
+  const jsonBtn = el('button', 'btn', t('s.custom_json_mode'));
+  jsonBtn.type = 'button';
+  modeRow.append(guidedBtn, jsonBtn);
+  form.append(modeRow);
+  if (initial.complex) form.append(el('div', 'hint', t('s.custom_guided_complex')));
+
+  const templateSel = document.createElement('select');
+  for (const [key, label] of [['usage', t('s.custom_template_usage')], ['balance', t('s.custom_template_balance')], ['cost', t('s.custom_template_cost')]]) {
+    const option = el('option', null, label);
+    option.value = key;
+    option.selected = key === 'usage';
+    templateSel.append(option);
+  }
+  form.append(field(t('s.custom_template'), templateSel));
+
+  const tools = el('div', 'custom-tools');
+  const copy = el('button', 'btn', t('s.custom_copy'));
+  copy.type = 'button';
+  const load = el('button', 'btn', t('s.custom_load'));
+  load.type = 'button';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/json,.json';
+  fileInput.hidden = true;
+  tools.append(copy, load);
+  form.append(tools, fileInput);
+
+  const guidedPanel = el('div', 'guided');
+  const g = {};
+  const select = (options, value) => {
+    const s = document.createElement('select');
+    for (const [v, label] of options) {
+      const o = el('option', null, label);
+      o.value = v;
+      o.selected = v === value;
+      s.append(o);
+    }
+    return s;
+  };
+  const textarea = (value, rows) => {
+    const a = document.createElement('textarea');
+    a.value = value || '';
+    a.rows = rows;
+    a.spellcheck = false;
+    return a;
+  };
+  g.name = textInput('text', initial.guided.name, 'My provider');
+  g.url = textInput('text', initial.guided.url, 'https://api.example.com/usage');
+  g.method = select([['GET', 'GET'], ['POST', 'POST']], initial.guided.method);
+  g.auth = select(
+    [['bearer', t('s.custom_auth_bearer')], ['header', t('s.custom_auth_header')], ['none', t('s.custom_auth_none')]],
+    initial.guided.auth
+  );
+  g.auth.id = 'custom-auth';
+  g.authHeader = textInput('text', initial.guided.authHeader, 'Authorization');
+  g.authPrefix = textInput('text', initial.guided.authPrefix, 'Bearer ');
+  g.headers = textarea(initial.guided.headers, 3);
+  g.body = textarea(initial.guided.body, 3);
+  g.windowKey = textInput('text', initial.guided.windowKey, 'month');
+  g.windowLabel = textInput('text', initial.guided.windowLabel, 'Month');
+  g.percent = textInput('text', initial.guided.percent, 'data.percent');
+  g.scale = select(
+    [['percent', t('s.custom_scale_percent')], ['fraction', t('s.custom_scale_fraction')]],
+    initial.guided.scale
+  );
+  g.resetsAt = textInput('text', initial.guided.resetsAt, 'data.reset');
+  g.detail = textInput('text', initial.guided.detail, 'data.detail');
+  g.noteTemplate = textInput('text', initial.guided.noteTemplate, 'Balance: {amount}');
+  g.noteAmountPath = textInput('text', initial.guided.noteAmountPath, 'data.balance');
+  g.plan = textInput('text', initial.guided.plan, 'data.plan');
+
+  const authHeaderField = field(t('s.custom_auth_header_name'), g.authHeader);
+  const authPrefixField = field(t('s.custom_auth_prefix'), g.authPrefix);
+  const bodyField = field(t('s.custom_body'), g.body);
+  guidedPanel.append(
+    el('h3', null, t('s.custom_connection')),
+    field(t('s.custom_name'), g.name),
+    field(t('s.custom_url'), g.url),
+    field(t('s.custom_method'), g.method),
+    field(t('s.custom_auth'), g.auth),
+    authHeaderField,
+    authPrefixField,
+    field(t('s.custom_headers'), g.headers, t('s.custom_headers_hint')),
+    bodyField,
+    el('h3', null, t('s.custom_window')),
+    field(t('s.custom_window_key'), g.windowKey),
+    field(t('s.custom_window_label'), g.windowLabel),
+    field(t('s.custom_percent_path'), g.percent),
+    field(t('s.custom_scale'), g.scale),
+    field(t('s.custom_reset_path'), g.resetsAt),
+    field(t('s.custom_detail_path'), g.detail),
+    el('h3', null, t('s.custom_note')),
+    field(t('s.custom_note_template'), g.noteTemplate),
+    field(t('s.custom_note_amount'), g.noteAmountPath),
+    field(t('s.custom_plan_path'), g.plan)
+  );
+  form.append(guidedPanel);
+
+  const specInput = document.createElement('textarea');
+  specInput.id = 'custom-spec';
+  specInput.value = JSON.stringify(editable, null, 2);
+  specInput.spellcheck = false;
+  specInput.autocomplete = 'off';
+  specInput.rows = 14;
+  const specField = field(t('s.custom_json'), specInput, t('s.custom_mapping_hint'));
+  form.append(specField);
+
+  const hasKey = !!(meta && spec && meta.secrets && meta.secrets[spec.keyName]);
+  const keyInput = textInput('password', '', hasKey ? t('s.key_set_ph') : t('s.custom_key_ph'));
+  let keyValue = '';
+  let clearKey = false;
+  keyInput.oninput = () => {
+    keyValue = keyInput.value;
+    if (keyValue.trim()) clearKey = false;
+  };
+  const keyWrap = field(t('s.custom_key'), keyInput, t('s.custom_key_hint'));
+  if (hasKey) {
+    const remove = el('button', 'link dim remove-key', t('s.remove_key'));
+    remove.type = 'button';
+    remove.onclick = () => {
+      clearKey = true;
+      keyValue = '';
+      keyInput.value = '';
+      keyInput.placeholder = t('s.will_remove_ph');
+      remove.remove();
+    };
+    keyWrap.append(remove);
+  }
+  form.append(keyWrap);
+
+  const err = el('div', 'err');
+  err.hidden = true;
+  form.append(err);
+
+  const testBox = el('div', 'test-result');
+  testBox.hidden = true;
+  form.append(testBox);
+
+  const bar = el('div', 'form-actions');
+  const save = el('button', 'btn primary', t('s.save'));
+  save.type = 'button';
+  const test = el('button', 'btn', t('s.custom_test'));
+  test.type = 'button';
+  const cancel = el('button', 'btn', t('s.cancel'));
+  cancel.type = 'button';
+  cancel.onclick = () => {
+    view = isNew ? 'main' : id;
+    renderSettings();
+  };
+  bar.append(save, test, cancel);
+  if (!isNew) {
+    const del = el('button', 'link dim', t('s.custom_delete_short'));
+    del.type = 'button';
+    del.onclick = () => deleteCustom(id);
+    bar.append(el('span', 'spacer'), del);
+  }
+  form.append(bar);
+
+  const showError = (text) => {
+    testBox.hidden = true;
+    err.textContent = text;
+    err.hidden = false;
+    fitWindow();
+  };
+
+  const parseSpec = () => {
+    try {
+      return { ok: true, spec: JSON.parse(specInput.value) };
+    } catch (e) {
+      showError(t('s.custom_invalid', { error: e && e.message ? e.message : String(e) }));
+      return { ok: false };
+    }
+  };
+
+  const refreshConditional = () => {
+    const header = g.auth.value === 'header';
+    authHeaderField.hidden = !header;
+    authPrefixField.hidden = !header;
+    bodyField.hidden = g.method.value !== 'POST';
+  };
+
+  const populateGuided = (guided) => {
+    for (const key of ['name', 'url', 'method', 'auth', 'authHeader', 'authPrefix', 'headers', 'body', 'windowKey', 'windowLabel', 'percent', 'scale', 'resetsAt', 'detail', 'noteTemplate', 'noteAmountPath', 'plan']) {
+      g[key].value = guided[key] == null ? '' : guided[key];
+    }
+    refreshConditional();
+  };
+
+  const syncGuided = () => {
+    let headers;
+    try {
+      headers = JSON.parse(g.headers.value.trim() || '{}');
+    } catch (_) {
+      showError(t('s.custom_headers_invalid'));
+      return false;
+    }
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
+      showError(t('s.custom_headers_invalid'));
+      return false;
+    }
+    const built = window.customSpec.buildSpec({
+      name: g.name.value,
+      url: g.url.value,
+      method: g.method.value,
+      auth: g.auth.value,
+      authHeader: g.authHeader.value,
+      authPrefix: g.authPrefix.value,
+      headers,
+      body: g.body.value,
+      windowKey: g.windowKey.value,
+      windowLabel: g.windowLabel.value,
+      percent: g.percent.value,
+      scale: g.scale.value,
+      resetsAt: g.resetsAt.value,
+      detail: g.detail.value,
+      noteTemplate: g.noteTemplate.value,
+      noteAmountPath: g.noteAmountPath.value,
+      plan: g.plan.value,
+    });
+    specInput.value = JSON.stringify(built, null, 2);
+    if (!err.hidden) {
+      err.hidden = true;
+      fitWindow();
+    }
+    return true;
+  };
+
+  const setMode = (next, sync = true) => {
+    if (next === 'guided') {
+      let parsed;
+      try {
+        parsed = JSON.parse(specInput.value);
+      } catch (e) {
+        showError(t('s.custom_invalid', { error: e && e.message ? e.message : String(e) }));
+        return;
+      }
+      const info = window.customSpec.toGuided(parsed);
+      if (info.complex) {
+        showError(t('s.custom_guided_complex'));
+        return;
+      }
+      populateGuided(info.guided);
+      mode = 'guided';
+      guidedPanel.hidden = false;
+      specField.hidden = true;
+      guidedBtn.classList.add('on');
+      jsonBtn.classList.remove('on');
+      syncGuided();
+      fitWindow();
+      return;
+    }
+    if (mode === 'guided' && sync && !syncGuided()) return;
+    mode = 'json';
+    guidedPanel.hidden = true;
+    specField.hidden = false;
+    jsonBtn.classList.add('on');
+    guidedBtn.classList.remove('on');
+    fitWindow();
+  };
+
+  const showTestResult = (res) => {
+    testBox.replaceChildren();
+    testBox.hidden = false;
+    if (!res || !res.ok) {
+      const text = res && res.error ? providerText('err', res.error, res.errorParams) : t('s.custom_test_failed');
+      testBox.append(el('div', 'err', text));
+    } else {
+      testBox.append(el('div', 'test-title', t('s.custom_test_ok')));
+      for (const w of res.windows || []) {
+        const pct = Math.max(0, Math.min(100, w.percent || 0));
+        const parts = [`${w.label || winLabel(w.key)}: ${pct.toFixed(1)}%`];
+        if (w.detail) parts.push(w.detail);
+        if (w.resetsAt) parts.push(fmtReset(w.resetsAt));
+        testBox.append(el('div', 'test-window', parts.join(' · ')));
+      }
+      if (res.noteText) testBox.append(el('div', 'note', res.noteText));
+      if (res.plan) testBox.append(el('div', 'note', `${t('s.custom_plan')}: ${res.plan}`));
+      if (!(res.windows || []).length && !res.noteText) testBox.append(el('div', 'err', t('s.custom_test_empty')));
+    }
+    fitWindow();
+  };
+
+  for (const input of [g.name, g.url, g.authHeader, g.authPrefix, g.headers, g.body, g.windowKey, g.windowLabel, g.percent, g.resetsAt, g.detail, g.noteTemplate, g.noteAmountPath, g.plan]) {
+    input.addEventListener('input', () => {
+      testBox.hidden = true;
+      if (mode === 'guided') syncGuided();
+    });
+  }
+  for (const input of [g.method, g.auth, g.scale]) {
+    input.addEventListener('change', () => {
+      refreshConditional();
+      testBox.hidden = true;
+      if (mode === 'guided') syncGuided();
+    });
+  }
+
+  guidedBtn.onclick = () => setMode('guided');
+  jsonBtn.onclick = () => setMode('json');
+
+  templateSel.onchange = () => {
+    const key = templateSel.value;
+    if (!confirm(t('s.custom_template_confirm'))) {
+      templateSel.value = previousTemplate;
+      return;
+    }
+    previousTemplate = key;
+    const template = JSON.parse(JSON.stringify(window.customSpec.TEMPLATES[key]));
+    specInput.value = JSON.stringify(template, null, 2);
+    const info = window.customSpec.toGuided(template);
+    populateGuided(info.guided);
+    if (mode === 'guided') {
+      if (info.complex) setMode('json', false);
+      else syncGuided();
+    }
+    testBox.hidden = true;
+    fitWindow();
+  };
+
+  copy.onclick = async () => {
+    if (mode === 'guided' && !syncGuided()) return;
+    try {
+      await window.qw.copyText(specInput.value);
+    } catch (e) {
+      showError(e && e.message ? e.message : String(e));
+      return;
+    }
+    copy.textContent = t('s.custom_copied');
+    setTimeout(() => (copy.textContent = t('s.custom_copy')), 1500);
+  };
+
+  load.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+        const info = window.customSpec.toGuided(parsed);
+        specInput.value = JSON.stringify(parsed, null, 2);
+        populateGuided(info.guided);
+        if (info.complex) setMode('json', false);
+        else if (mode === 'guided') syncGuided();
+        testBox.hidden = true;
+        fitWindow();
+      } catch (_) {
+        showError(t('s.custom_load_invalid'));
+      }
+      fileInput.value = '';
+    };
+    reader.onerror = () => {
+      showError(t('s.custom_load_invalid'));
+      fileInput.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  specInput.addEventListener('input', () => (testBox.hidden = true));
+  keyInput.addEventListener('input', () => (testBox.hidden = true));
+
+  test.onclick = async () => {
+    if (mode === 'guided' && !syncGuided()) return;
+    const parsed = parseSpec();
+    if (!parsed.ok) return;
+    test.disabled = true;
+    test.textContent = t('s.custom_testing');
+    let res;
+    try {
+      res = await window.qw.testCustomProvider({ id: id || undefined, spec: parsed.spec, apiKey: keyValue, clearKey });
+    } catch (e) {
+      res = { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+    test.disabled = false;
+    test.textContent = t('s.custom_test');
+    showTestResult(res);
+  };
+
+  save.onclick = async () => {
+    if (mode === 'guided' && !syncGuided()) return;
+    const parsed = parseSpec();
+    if (!parsed.ok) return;
     save.disabled = true;
     save.textContent = t('s.saving');
-    closeSettings();
-    await window.qw.setConfig(patch);
+    let result;
+    try {
+      result = await window.qw.saveCustomProvider({ id: id || undefined, spec: parsed.spec, apiKey: keyValue, clearKey });
+    } catch (e) {
+      result = { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+    if (!result || !result.ok) {
+      save.disabled = false;
+      save.textContent = t('s.save');
+      showError(t('s.custom_invalid', { error: (result && result.error) || 'unknown' }));
+      return;
+    }
+    try {
+      last = await window.qw.getState();
+    } catch (_) {}
+    view = result.id || id || 'main';
+    renderSettings();
   };
-  cancel.onclick = () => closeSettings();
-  file.onclick = () => window.qw.openConfig();
-  actions.append(save, cancel, el('span', 'spacer'), file);
-  form.append(actions);
 
-  settings.replaceChildren(form);
-  settings.hidden = false;
-  list.hidden = true;
-  $('#btn-config').classList.add('on');
-  fitWindow();
+  refreshConditional();
+  setMode(mode, false);
+  return form;
+}
+
+async function deleteCustom(id) {
+  const spec = ((last.config && last.config.customProviders) || []).find((s) => s.id === id);
+  if (!spec) return;
+  if (!confirm(t('s.custom_delete_confirm'))) return;
+  let result;
+  try {
+    result = await window.qw.deleteCustomProvider(id);
+  } catch (e) {
+    result = { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+  if (!result || !result.ok) {
+    alert((result && result.error) || t('s.custom_failed'));
+    return;
+  }
+  try {
+    last = await window.qw.getState();
+  } catch (_) {}
+  view = 'main';
+  renderSettings();
+}
+
+function fieldEl(meta, f) {
+  const label = fieldText(meta, f, '') || f.key;
+  const hint = fieldText(meta, f, '.hint');
+  const ph = fieldText(meta, f, '.ph');
+
+  if (f.type === 'boolean') {
+    const c = check(label, !!draft.values[f.key]);
+    c.input.onchange = () => (draft.values[f.key] = c.input.checked);
+    return c.wrap;
+  }
+
+  if (f.type === 'number') {
+    const value = draft.values[f.key];
+    const input = textInput('number', value == null ? '' : value, ph || (f.default != null ? String(f.default) : ''));
+    if (f.min != null) input.min = f.min;
+    if (f.max != null) input.max = f.max;
+    input.oninput = () => (draft.values[f.key] = input.value);
+    return field(label, input, hint);
+  }
+
+  if (f.type === 'secret') {
+    const input = textInput('password', '', meta.secrets[f.key] ? t('s.key_set_ph') : ph || '');
+    input.oninput = () => {
+      if (input.value.trim()) {
+        draft.secrets[f.key] = input.value;
+        delete draft.clear[f.key];
+      } else {
+        delete draft.secrets[f.key];
+      }
+    };
+    const wrap = field(label, input, hint);
+    if (meta.secrets[f.key] && !draft.clear[f.key]) {
+      const remove = el('button', 'link dim remove-key', t('s.remove_key'));
+      remove.type = 'button';
+      remove.onclick = () => {
+        draft.clear[f.key] = true;
+        delete draft.secrets[f.key];
+        input.value = '';
+        input.placeholder = t('s.will_remove_ph');
+        remove.remove();
+      };
+      wrap.append(remove);
+    } else if (draft.clear[f.key]) {
+      input.placeholder = t('s.will_remove_ph');
+    }
+    return wrap;
+  }
+
+  const input = textInput('text', draft.values[f.key] == null ? '' : draft.values[f.key], ph || '');
+  input.oninput = () => (draft.values[f.key] = input.value);
+  return field(label, input, hint);
+}
+
+function actions() {
+  const box = el('div', 'form-actions');
+  const save = el('button', 'btn primary', t('s.save'));
+  save.type = 'button';
+  save.onclick = () => saveSettings(save);
+  const cancel = el('button', 'btn', t('s.cancel'));
+  cancel.type = 'button';
+  cancel.onclick = () => closeSettings();
+  const file = el('button', 'link dim', t('s.open_config'));
+  file.type = 'button';
+  file.onclick = () => window.qw.openConfig();
+  box.append(save, cancel, el('span', 'spacer'), file);
+  return box;
+}
+
+async function saveSettings(button) {
+  if (!draft) return;
+  const patch = {
+    language: draft.language,
+    intervalMin: draft.intervalMin,
+    pinned: draft.pinned,
+    openAtLogin: draft.openAtLogin,
+    enabled: { ...draft.enabled },
+    hiddenWindows: JSON.parse(JSON.stringify(draft.hiddenWindows)),
+  };
+  for (const meta of last.providerMeta || []) {
+    for (const f of meta.fields || []) {
+      if (f.type === 'secret') {
+        const v = draft.secrets[f.key];
+        if (v != null && v.trim()) patch[f.key] = v.trim();
+        else if (draft.clear[f.key]) patch[f.key] = '';
+      } else if (f.type === 'boolean') {
+        patch[f.key] = !!draft.values[f.key];
+      } else if (f.type === 'number') {
+        patch[f.key] = draft.values[f.key] === '' || draft.values[f.key] == null ? null : draft.values[f.key];
+      } else {
+        patch[f.key] = draft.values[f.key] == null ? '' : String(draft.values[f.key]);
+      }
+    }
+  }
+  button.disabled = true;
+  button.textContent = t('s.saving');
+  closeSettings();
+  await window.qw.setConfig(patch);
 }
 
 function closeSettings() {
   inSettings = false;
+  draft = null;
+  view = 'main';
   settings.hidden = true;
   list.hidden = false;
   $('#btn-config').classList.remove('on');
