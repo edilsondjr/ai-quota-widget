@@ -6,7 +6,7 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Oll
 
 > Also available in: [Português (pt-BR)](docs/README.pt-BR.md) · [Español](docs/README.es.md)
 
-<p align="center"><img src="docs/screenshot.png" alt="Quota Widget showing Claude, ChatGPT, Command Code and Ollama usage bars" width="382"></p>
+<p align="center"><img src="docs/screenshot.png" alt="Quota Widget showing Claude, ChatGPT, Command Code and Ollama usage bars" width="420"></p>
 
 ## Features
 
