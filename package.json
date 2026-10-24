@@ -18,7 +18,8 @@
       "main.js",
       "providers/**",
       "preload.js",
-      "renderer/**"
+      "renderer/**",
+      "locales/**"
     ],
     "directories": {
       "buildResources": "build"

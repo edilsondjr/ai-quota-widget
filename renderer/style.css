@@ -131,7 +131,7 @@ body { padding: 8px; }
 .fld { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
 .fld .fl { font-size: 12px; color: var(--muted); }
 .fld .hint { font-size: 11px; color: var(--muted); opacity: 0.8; }
-.fld input {
+.fld input, .fld select {
   background: var(--track);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -140,7 +140,8 @@ body { padding: 8px; }
   padding: 5px 8px;
   user-select: text;
 }
-.fld input:focus { outline: 1px solid var(--accent); }
+.fld select option { background: var(--bg); color: var(--text); }
+.fld input:focus, .fld select:focus { outline: 1px solid var(--accent); }
 .fld input::placeholder { color: var(--muted); opacity: 0.7; }
 .clear-row { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; margin-bottom: 6px; }
 

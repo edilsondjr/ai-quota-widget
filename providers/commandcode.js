@@ -28,17 +28,17 @@ async function get(p, key) {
 function parseCredits(body, plan = null) {
   const wl = body.windowLimits || {};
   const windows = [];
-  for (const [k, label] of [['fiveHour', '5 h'], ['weekly', 'Semana']]) {
+  for (const [k, key] of [['fiveHour', 'five_hour'], ['weekly', 'weekly']]) {
     const w = wl[k];
     if (!w) continue;
     const used = num(w.used);
     const cap = num(w.cap);
-    windows.push({ label, percent: cap ? Math.min(100, (used / cap) * 100) : 0, resetsAt: toMs(w.resetAt), detail: cap ? `${used} / ${cap}` : null });
+    windows.push({ key, percent: cap ? Math.min(100, (used / cap) * 100) : 0, resetsAt: toMs(w.resetAt), detail: cap ? `${used != null ? +used.toFixed(2) : 0} / ${cap}` : null });
   }
   const cr = body.credits || {};
   const monthly = num(cr.monthlyCredits);
   const total = (monthly || 0) + (num(cr.purchasedCredits) || 0) + (num(cr.freeCredits) || 0);
-  return { windows, plan, note: monthly != null ? `Créditos restantes: $${total.toFixed(2)}` : null };
+  return { windows, plan, note: monthly != null ? 'credits_left' : null, noteParams: { amount: total.toFixed(2) } };
 }
 
 // /alpha/billing/subscriptions -> id do plano (ou null)
@@ -46,10 +46,10 @@ const parsePlan = (body) => body?.data?.planId || null;
 
 async function run(cfg) {
   const key = readKey(cfg);
-  if (!key) return { action: 'key', error: 'Sem chave. Rode "cmd login" ou preencha commandcodeApiKey no config.' };
+  if (!key) return { action: 'key', error: 'cc_nokey' };
   const c = await get('/alpha/billing/credits', key);
-  if (c.status === 401 || c.status === 403) return { action: 'key', error: 'Chave do Command Code inválida ou expirada.' };
-  if (c.status !== 200 || !c.body) return { error: `Command Code respondeu ${c.status}.` };
+  if (c.status === 401 || c.status === 403) return { action: 'key', error: 'cc_invalid' };
+  if (c.status !== 200 || !c.body) return { error: 'http', errorParams: { name: 'Command Code', status: c.status } };
   let plan = null;
   try {
     plan = parsePlan((await get('/alpha/billing/subscriptions', key)).body);

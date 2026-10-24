@@ -1,4 +1,7 @@
 // Funções puras compartilhadas pelos provedores (sem dependência do Electron).
+// Convenção: os provedores não devolvem texto de interface. Janelas têm `key` estável
+// (o texto vem de locales/*.json: "win.<key>"), e erros/notas são códigos
+// ("err.<code>", "note.<code>") com parâmetros em `errorParams` / `noteParams`.
 const num = (v) => (typeof v === 'number' && isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && isFinite(+v) ? +v : null);
 
 function toMs(v) {
@@ -6,13 +9,6 @@ function toMs(v) {
   if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
   const t = Date.parse(v);
   return isNaN(t) ? null : t;
-}
-
-function humanSecs(s) {
-  if (s % 604800 === 0) return `${s / 604800} sem.`;
-  if (s % 86400 === 0) return `${s / 86400} d`;
-  if (s % 3600 === 0) return `${s / 3600} h`;
-  return `${Math.round(s / 60)} min`;
 }
 
 function parseJson(r) {
@@ -25,4 +21,4 @@ function parseJson(r) {
 
 const isCloudflare = (t) => /just a moment|cf-chl|challenge-platform/i.test(t || '');
 
-module.exports = { num, toMs, humanSecs, parseJson, isCloudflare };
+module.exports = { num, toMs, parseJson, isCloudflare };

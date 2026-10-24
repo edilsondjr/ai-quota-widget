@@ -2,16 +2,16 @@
 
 A small always-on-top Windows widget that shows your AI usage quotas across providers in one place. One bar per usage window, with a countdown to the next reset.
 
-Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Ollama**. Adding a provider is a single function, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code** and **Ollama**. Adding a provider is a single file, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > Português: veja a seção [Leia-me (pt-BR)](#leia-me-pt-br) no final.
 
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: choose which services and which windows are shown, set the refresh interval, enter API keys, and toggle always-on-top and start with Windows.
+- Settings screen: choose which services and which windows are shown, set the refresh interval, enter API keys, pick the language (English or Português), and toggle always-on-top and start with Windows.
 - System tray icon; the window remembers its position.
-- Everything runs locally. Logins live in isolated Electron sessions on your machine, and API keys stay in a local `config.json`. Nothing is sent anywhere except to the services themselves.
+- Everything runs locally. Logins live in isolated Electron sessions on your machine, and API keys are stored encrypted with Windows (Electron `safeStorage`, tied to your Windows user) in a local `config.json`. Nothing is sent anywhere except to the services themselves.
 
 ## Install
 
@@ -69,6 +69,6 @@ Issues and pull requests are welcome, especially fixes when an endpoint changes.
 Widget flutuante para Windows que reúne as quotas de uso das suas IAs em um só lugar, com barras e contagem regressiva até a renovação. Hoje suporta **Claude**, **ChatGPT (Codex)**, **Command Code** e **Ollama**, e novos provedores são bem-vindos.
 
 - **Instalar:** baixe o `Quota-Widget-Setup-<versão>.exe` na página de [Releases](../../releases). O instalador não é assinado, então o SmartScreen pode avisar; clique em "Mais informações" e "Executar assim mesmo".
-- **Configurar:** clique no ⚙ do widget para escolher o que aparece, o intervalo de atualização, as chaves de API e o início com o Windows.
+- **Configurar:** clique no ⚙ do widget para escolher o que aparece, o intervalo de atualização, as chaves de API (guardadas criptografadas pelo Windows), o idioma (English/Português) e o início com o Windows.
 - **Gerar do código:** `npm install` e `npm run dist` (Node 20+, no Windows).
 - **Aviso:** as rotas usadas não são oficiais e podem mudar. Use apenas com as suas próprias contas e por sua conta e risco.

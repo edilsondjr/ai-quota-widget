@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
@@ -9,17 +9,18 @@
 <body>
   <main id="card">
     <header id="bar">
-      <span class="title">Quotas de IA</span>
+      <span class="title" data-i18n="app.title"></span>
       <span class="spacer"></span>
-      <button id="btn-refresh" title="Atualizar agora">↻</button>
-      <button id="btn-pin" title="Sempre no topo">📌</button>
-      <button id="btn-config" title="Configurações">⚙</button>
-      <button id="btn-hide" title="Ocultar (continua na bandeja)">✕</button>
+      <button id="btn-refresh" data-i18n-title="btn.refresh">↻</button>
+      <button id="btn-pin" data-i18n-title="btn.pin">📌</button>
+      <button id="btn-config" data-i18n-title="btn.config">⚙</button>
+      <button id="btn-hide" data-i18n-title="btn.hide">✕</button>
     </header>
     <section id="list"></section>
     <section id="settings" hidden></section>
     <footer id="foot"></footer>
   </main>
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

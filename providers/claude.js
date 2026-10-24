@@ -1,14 +1,7 @@
 const { num, toMs, parseJson, isCloudflare } = require('./util');
 const { pageFetch } = require('./browser');
 
-const LABELS = {
-  five_hour: '5 h',
-  seven_day: 'Semana',
-  seven_day_sonnet: 'Sonnet (sem.)',
-  seven_day_opus: 'Opus (sem.)',
-  seven_day_omelette: 'Design (sem.)',
-  extra_usage: 'Uso extra (mês)',
-};
+const KNOWN = new Set(['five_hour', 'seven_day', 'seven_day_sonnet', 'seven_day_opus', 'seven_day_omelette', 'extra_usage']);
 const ORDER = ['five_hour', 'seven_day', 'seven_day_sonnet', 'seven_day_opus'];
 
 function collectWindows(obj, out = [], key = '') {
@@ -32,14 +25,14 @@ function parseUsage(body, cfg = {}) {
   for (const w of collectWindows(body)) if (!seen.has(w.key)) seen.set(w.key, w);
   // chaves internas sem rótulo conhecido (ex.: iguana_necktie) ficam ocultas, a menos que claudeShowUnknown seja true
   const windows = [...seen.values()]
-    .filter((w) => LABELS[w.key] || cfg.claudeShowUnknown)
+    .filter((w) => KNOWN.has(w.key) || cfg.claudeShowUnknown)
     .sort((a, b) => {
       const ia = ORDER.indexOf(a.key);
       const ib = ORDER.indexOf(b.key);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     })
-    .map((w) => ({ label: LABELS[w.key] || w.key.replace(/_/g, ' '), percent: w.percent, resetsAt: w.resetsAt }));
-  if (!windows.length) return { error: 'Resposta sem janelas de uso reconhecíveis (formato mudou?).' };
+    .map((w) => ({ key: w.key, percent: w.percent, resetsAt: w.resetsAt }));
+  if (!windows.length) return { error: 'no_windows' };
   return { windows };
 }
 
@@ -48,7 +41,7 @@ async function run(cfg = {}) {
   const origin = 'https://claude.ai';
   if (!org) {
     const r = await pageFetch('claude', origin, '/api/organizations');
-    if (isCloudflare(r.text)) return { error: 'Cloudflare bloqueou a consulta. Tente atualizar de novo em instantes.' };
+    if (isCloudflare(r.text)) return { error: 'cloudflare' };
     if (r.status === 401 || r.status === 403 || r.status === 0) return { action: 'login' };
     org = parseOrgs(parseJson(r));
     if (!org) return { action: 'login' };
@@ -59,7 +52,7 @@ async function run(cfg = {}) {
     return { action: 'login' };
   }
   const body = parseJson(r);
-  if (r.status !== 200 || !body) return { error: `Claude respondeu ${r.status}.` };
+  if (r.status !== 200 || !body) return { error: 'http', errorParams: { name: 'Claude', status: r.status } };
   return parseUsage(body, cfg);
 }
 

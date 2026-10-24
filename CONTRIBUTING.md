@@ -16,9 +16,15 @@ npm start
 - `renderer/`: the UI (cards and settings screen). No framework, plain DOM.
 - `preload.js`: the small, explicit bridge between UI and main process.
 
+- `locales/`: UI text, one JSON file per language (`en.json` is the default and the fallback).
+
+## Translating
+
+Copy `locales/en.json` to `locales/<code>.json` (e.g. `es.json`), set `_name` to the language's own name, and translate the values. Keys you leave out fall back to English. The new language appears in Settings automatically.
+
 ## Adding a service
 
-1. Create `providers/<id>.js` exporting `{ id, name, loginUrl, run(cfg) }`. `run` returns `{ windows: [{ label, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`. Keep the response parsing in a separate pure function (no Electron) so it can be tested.
+1. Create `providers/<id>.js` exporting `{ id, name, loginUrl, run(cfg) }`. `run` returns `{ windows: [{ label, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`. Keep the response parsing in a separate pure function (no Electron) so it can be tested. Providers never return UI text: windows carry a stable `key` (translated as `win.<key>` in `locales/`), and errors/notes are codes (`err.<code>`, `note.<code>`) with optional `errorParams` / `noteParams`.
 2. Register it in the `PROVIDERS` array in `providers/index.js` and add its name in `renderer/renderer.js`.
 
 ## Ground rules

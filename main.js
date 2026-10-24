@@ -2,9 +2,27 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, saf
 const fs = require('fs');
 const path = require('path');
 const { PROVIDERS, collect, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
+const { translator } = require('./renderer/i18n');
+
+// Idiomas = arquivos em locales/. Para acrescentar um, basta colocar <código>.json lá.
+const LOCALES = {};
+for (const f of fs.readdirSync(path.join(__dirname, 'locales'))) {
+  if (f.endsWith('.json')) LOCALES[f.slice(0, -5)] = JSON.parse(fs.readFileSync(path.join(__dirname, 'locales', f), 'utf8'));
+}
+const FALLBACK_LANG = 'en';
+let t = translator(LOCALES[FALLBACK_LANG]);
+
+// Antes do suporte a idiomas, hiddenWindows guardava o texto em português da janela.
+const LEGACY_WINDOW_KEYS = {
+  claude: { '5 h': 'five_hour', Semana: 'seven_day', 'Sonnet (sem.)': 'seven_day_sonnet', 'Opus (sem.)': 'seven_day_opus', 'Design (sem.)': 'seven_day_omelette', 'Uso extra (mês)': 'extra_usage' },
+  chatgpt: { '5 h': 'five_hour', Semana: 'weekly' },
+  commandcode: { '5 h': 'five_hour', Semana: 'weekly' },
+  ollama: { 'Sessão (5 h)': 'session', Semana: 'weekly', 'Mês (crédito)': 'month' },
+};
 
 const WIDTH = 336;
 const DEFAULTS = {
+  language: FALLBACK_LANG,
   intervalMin: 5,
   pinned: true,
   ollamaApiKey: '',
@@ -21,7 +39,16 @@ let win = null;
 let tray = null;
 let timer = null;
 let cfg = { ...DEFAULTS };
-const state = { providers: {}, updatedAt: null, loading: false, pinned: true, version: '', config: {} };
+const state = { providers: {}, updatedAt: null, loading: false, pinned: true, version: '', config: {}, lang: FALLBACK_LANG, strings: {}, languages: [] };
+
+function applyLanguage() {
+  if (!LOCALES[cfg.language]) cfg.language = FALLBACK_LANG;
+  // chaves que faltarem num idioma caem para o inglês
+  state.strings = { ...LOCALES[FALLBACK_LANG], ...LOCALES[cfg.language] };
+  state.lang = cfg.language;
+  state.languages = Object.entries(LOCALES).map(([code, l]) => ({ code, name: l._name || code }));
+  t = translator(state.strings);
+}
 
 const cfgPath = () => path.join(app.getPath('userData'), 'config.json');
 
@@ -61,6 +88,10 @@ function loadCfg() {
   if (needsSave) saveCfg();
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
+  for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
+    if (Array.isArray(cfg.hiddenWindows[id])) cfg.hiddenWindows[id] = cfg.hiddenWindows[id].map((k) => legacy[k] || k);
+  }
+  applyLanguage();
   state.pinned = !!cfg.pinned;
   state.config = publicConfig();
 }
@@ -68,6 +99,7 @@ function loadCfg() {
 // Config enviada à interface: nunca inclui as chaves de API, só se existem.
 function publicConfig() {
   return {
+    language: cfg.language,
     intervalMin: cfg.intervalMin,
     enabled: cfg.enabled,
     hiddenWindows: cfg.hiddenWindows,
@@ -219,20 +251,20 @@ function setPinned(v) {
 function buildTrayMenu() {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
-    { label: 'Mostrar / ocultar', click: toggleWindow },
-    { label: 'Atualizar agora', click: () => refresh() },
+    { label: t('tray.toggle'), click: toggleWindow },
+    { label: t('tray.refresh'), click: () => refresh() },
     { type: 'separator' },
-    { label: 'Sempre no topo', type: 'checkbox', checked: state.pinned, click: (i) => setPinned(i.checked) },
+    { label: t('tray.pin'), type: 'checkbox', checked: state.pinned, click: (i) => setPinned(i.checked) },
     {
-      label: 'Iniciar com o Windows',
+      label: t('tray.autostart'),
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
       click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }),
     },
-    { label: 'Abrir pasta de configuração', click: () => shell.openPath(app.getPath('userData')) },
+    { label: t('tray.open_folder'), click: () => shell.openPath(app.getPath('userData')) },
     { type: 'separator' },
     {
-      label: 'Sair',
+      label: t('tray.quit'),
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -249,7 +281,7 @@ function openLogin(id) {
   const w = new BrowserWindow({
     width: 480,
     height: 740,
-    title: `Entrar — ${p.name}`,
+    title: t('login.title', { name: p.name }),
     autoHideMenuBar: true,
     webPreferences: { partition: partitionFor(id), contextIsolation: true, sandbox: true },
   });
@@ -276,6 +308,10 @@ ipcMain.handle('open-config', async () => {
 ipcMain.handle('toggle-pin', () => setPinned(!state.pinned));
 ipcMain.handle('set-config', async (_e, patch) => {
   if (!patch || typeof patch !== 'object') return;
+  if (typeof patch.language === 'string' && LOCALES[patch.language]) {
+    cfg.language = patch.language;
+    applyLanguage();
+  }
   const num = (v) => (v === null || v === '' || v === undefined ? null : Number.isFinite(+v) ? +v : undefined);
   if ('intervalMin' in patch) {
     const v = num(patch.intervalMin);
