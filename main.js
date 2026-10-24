@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { PROVIDERS, collect, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
+const { PROVIDERS, collect, release, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
 const { translator } = require('./renderer/i18n');
 
 // Languages = files in locales/. To add one, just drop <code>.json in there.
@@ -318,7 +318,15 @@ ipcMain.handle('set-config', async (_e, patch) => {
     if (v && v >= 1 && v <= 240) cfg.intervalMin = v;
   }
   if (patch.enabled && typeof patch.enabled === 'object') {
-    for (const p of PROVIDERS) if (p.id in patch.enabled) cfg.enabled[p.id] = !!patch.enabled[p.id];
+    for (const p of PROVIDERS) {
+      if (!(p.id in patch.enabled)) continue;
+      cfg.enabled[p.id] = !!patch.enabled[p.id];
+      if (!cfg.enabled[p.id]) {
+        // turned off: stop holding its hidden window and drop its stale reading
+        release(p.id);
+        delete state.providers[p.id];
+      }
+    }
   }
   if (patch.hiddenWindows && typeof patch.hiddenWindows === 'object') {
     const clean = {};

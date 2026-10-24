@@ -4,7 +4,7 @@
 // To add a provider: create providers/<id>.js exporting
 //   { id, name, loginUrl, run(cfg) -> { windows, plan?, note? } | { error } | { action } }
 // and add it to the list below.
-const { partitionFor, cleanUA, clearSession } = require('./browser');
+const { partitionFor, cleanUA, clearSession, dropHidden } = require('./browser');
 const claude = require('./claude');
 
 const PROVIDERS = [claude, require('./chatgpt'), require('./commandcode'), require('./ollama')];
@@ -20,4 +20,10 @@ async function collect(id, cfg) {
   }
 }
 
-module.exports = { PROVIDERS, collect, clearSession, partitionFor, cleanUA, resetClaudeOrg: claude.reset };
+// Frees what a provider keeps alive (its hidden browser window); used when it is turned off.
+function release(id) {
+  dropHidden(id);
+  if (id === 'claude') claude.reset();
+}
+
+module.exports = { PROVIDERS, collect, release, clearSession, partitionFor, cleanUA, resetClaudeOrg: claude.reset };

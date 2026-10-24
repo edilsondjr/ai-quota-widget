@@ -70,4 +70,4 @@ async function clearSession(id) {
 // fetch using the Electron network stack (for API-key endpoints, no cookies)
 const netFetch = (...args) => electron().net.fetch(...args);
 
-module.exports = { partitionFor, cleanUA, pageFetch, clearSession, netFetch };
+module.exports = { partitionFor, cleanUA, pageFetch, clearSession, dropHidden, netFetch };
