@@ -57,6 +57,8 @@ const LEGACY_WINDOW_KEYS = {
 
 const WIDTH = 336;
 const CONFIG_VERSION = 2;
+const APP_ID = 'com.beamglyph.quotawidget';
+app.setAppUserModelId(APP_ID);
 const DEFAULTS = {
   configVersion: CONFIG_VERSION,
   language: FALLBACK_LANG,
