@@ -7,7 +7,7 @@ Thanks for helping! The most valuable contributions are fixes when a service cha
 ```bash
 npm install
 npm start
-```bash
+```
 
 ## Project layout
 
@@ -24,14 +24,14 @@ Copy `locales/en.json` to `locales/<code>.json` (e.g. `es.json`), set `_name` to
 
 ## Adding a service
 
-1. Create `providers/<id>.js` exporting `{ id, name, loginUrl, run(cfg) }`. `run` returns `{ windows: [{ label, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`. Keep the response parsing in a separate pure function (no Electron) so it can be tested. Providers never return UI text: windows carry a stable `key` (translated as `win.<key>` in `locales/`), and errors/notes are codes (`err.<code>`, `note.<code>`) with optional `errorParams` / `noteParams`.
+1. Create `providers/<id>.js` exporting `{ id, name, loginUrl, run(cfg) }`. `run` returns `{ windows: [{ key, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`. Keep the response parsing in a separate pure function (no Electron) so it can be tested. Providers never return UI text: windows carry a stable `key` (translated as `win.<key>` in `locales/`), and errors/notes are codes (`err.<code>`, `note.<code>`) with optional `errorParams` / `noteParams`.
 2. Register it in the `PROVIDERS` array in `providers/index.js` and add its name in `renderer/renderer.js`.
 
 ## Tests
 
 ```bash
 npm test
-```bash
+```
 
 Uses Node's built-in test runner (no extra dependencies) and runs on every push and pull request. Parser tests read fixtures from `test/fixtures/`. When an endpoint changes, add or update a fixture with an **anonymized** real response (no names, emails, ids, keys or tokens), then fix the parser until the test passes. A locale test also checks that every language has the same keys as `en.json`.
 
