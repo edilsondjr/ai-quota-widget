@@ -40,7 +40,7 @@ None of these services offers an official quota API for subscriptions, so the wi
 | Ollama | `ollama.com/api/usage` (API key, monthly USD credit) or the settings page | API key in Settings, or sign in |
 | Command Code | `api.commandcode.ai/alpha/billing/credits` | Reads `~/.commandcode/auth.json` (run `cmd login`) or an API key in Settings |
 
-Each provider is an independent function in [`providers.js`](providers.js), so a broken endpoint is a one-place fix.
+Each provider lives in its own file under [`providers/`](providers), so a broken endpoint is a one-file fix.
 
 Notes:
 

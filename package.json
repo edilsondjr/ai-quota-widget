@@ -16,7 +16,7 @@
     "productName": "Quota Widget",
     "files": [
       "main.js",
-      "providers.js",
+      "providers/**",
       "preload.js",
       "renderer/**"
     ],

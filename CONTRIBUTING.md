@@ -12,14 +12,14 @@ npm start
 ## Project layout
 
 - `main.js`: Electron main process (window, tray, config, scheduling).
-- `providers.js`: one function per service that fetches and normalizes usage. **Most fixes go here.**
+- `providers/`: one file per service (`claude.js`, `chatgpt.js`, ...) that fetches and normalizes usage, plus `index.js` (the registry). **Most fixes go here.**
 - `renderer/`: the UI (cards and settings screen). No framework, plain DOM.
 - `preload.js`: the small, explicit bridge between UI and main process.
 
 ## Adding a service
 
-1. Add an async function in `providers.js` that returns `{ windows: [{ label, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`.
-2. Register it in the `PROVIDERS` array and add its name in `renderer/renderer.js`.
+1. Create `providers/<id>.js` exporting `{ id, name, loginUrl, run(cfg) }`. `run` returns `{ windows: [{ label, percent, resetsAt, detail? }], plan?, note? }`, or `{ action: 'login' | 'key', error? }`, or `{ error }`. Keep the response parsing in a separate pure function (no Electron) so it can be tested.
+2. Register it in the `PROVIDERS` array in `providers/index.js` and add its name in `renderer/renderer.js`.
 
 ## Ground rules
 
