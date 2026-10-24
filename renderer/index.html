@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>Quota Widget</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="card">
+    <header id="bar">
+      <span class="title">Quotas de IA</span>
+      <span class="spacer"></span>
+      <button id="btn-refresh" title="Atualizar agora">↻</button>
+      <button id="btn-pin" title="Sempre no topo">📌</button>
+      <button id="btn-config" title="Configurações">⚙</button>
+      <button id="btn-hide" title="Ocultar (continua na bandeja)">✕</button>
+    </header>
+    <section id="list"></section>
+    <section id="settings" hidden></section>
+    <footer id="foot"></footer>
+  </main>
+  <script src="renderer.js"></script>
+</body>
+</html>

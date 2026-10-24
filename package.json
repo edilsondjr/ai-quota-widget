@@ -1,0 +1,63 @@
+{
+  "name": "quota-widget",
+  "version": "0.2.0",
+  "description": "Always-on-top Windows widget that tracks your AI usage quotas across providers, with reset countdowns",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "dev.edilson.quotawidget",
+    "productName": "Quota Widget",
+    "files": [
+      "main.js",
+      "providers.js",
+      "preload.js",
+      "renderer/**"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Quota Widget",
+      "runAfterFinish": true,
+      "artifactName": "Quota-Widget-Setup-${version}.${ext}"
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "widget",
+    "windows",
+    "electron",
+    "quota",
+    "usage",
+    "ai",
+    "llm",
+    "rate-limit",
+    "claude",
+    "chatgpt",
+    "codex",
+    "ollama"
+  ]
+}
