@@ -56,6 +56,10 @@ const LEGACY_WINDOW_KEYS = {
 };
 
 const WIDTH = 336;
+const DOCK_TOP_HEIGHT = 112;
+const DOCK_SIDE_WIDTH = 300;
+const DOCK_SETTINGS_WIDTH = 360;
+const DOCK_MARGIN = 12;
 const CONFIG_VERSION = 2;
 const APP_ID = 'com.beamglyph.quotawidget';
 const SKINS = ['classic', 'paper'];
@@ -90,6 +94,8 @@ const DEFAULTS = {
   providerIntervals: {},
   notify: true,
   skin: 'classic',
+  layout: 'card',
+  dock: 'top',
   ollamaBillingDay: null,
   ollamaMonthlyCredits: null,
   claudeShowUnknown: false,
@@ -98,6 +104,8 @@ const DEFAULTS = {
 let win = null;
 let tray = null;
 let timer = null;
+let windowMode = 'widget';
+let contentHeight = 420;
 let cfg = { ...DEFAULTS };
 const notifiedWindows = new Map();
 const NOTIFY_AT = 90;
@@ -253,6 +261,8 @@ function loadCfg() {
   cfg.providerIntervals = cfg.providerIntervals && typeof cfg.providerIntervals === 'object' && !Array.isArray(cfg.providerIntervals) ? cfg.providerIntervals : {};
   cfg.notify = cfg.notify !== false;
   if (!SKINS.includes(cfg.skin)) cfg.skin = 'classic';
+  cfg.layout = cfg.layout === 'dock' ? 'dock' : 'card';
+  cfg.dock = ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top';
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
   for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
     if (Array.isArray(cfg.hiddenWindows[id])) cfg.hiddenWindows[id] = cfg.hiddenWindows[id].map((k) => legacy[k] || k);
@@ -275,6 +285,8 @@ function publicConfig() {
     providerIntervals: cfg.providerIntervals,
     notify: cfg.notify !== false,
     skin: cfg.skin,
+    layout: cfg.layout,
+    dock: cfg.dock,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
   };
 }
@@ -372,13 +384,60 @@ function clampToScreen() {
   if (x !== b.x || y !== b.y) win.setPosition(x, y);
 }
 
+function workAreaForWindow() {
+  const display = win && !win.isDestroyed() ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+  return display.workArea;
+}
+
+function dockBounds(mode, wa) {
+  if (mode === 'settings') {
+    const width = DOCK_SETTINGS_WIDTH;
+    const height = Math.min(Math.max(420, contentHeight), Math.max(200, wa.height - DOCK_MARGIN * 2));
+    const x = cfg.dock === 'right'
+      ? wa.x + wa.width - width - DOCK_MARGIN
+      : cfg.dock === 'left'
+        ? wa.x + DOCK_MARGIN
+        : wa.x + Math.round((wa.width - width) / 2);
+    return { x, y: wa.y + DOCK_MARGIN, width, height };
+  }
+  if (cfg.dock === 'top') {
+    const width = Math.min(1100, wa.width - DOCK_MARGIN * 2);
+    return { x: wa.x + Math.round((wa.width - width) / 2), y: wa.y + DOCK_MARGIN, width, height: DOCK_TOP_HEIGHT };
+  }
+  return {
+    x: cfg.dock === 'right' ? wa.x + wa.width - DOCK_SIDE_WIDTH - DOCK_MARGIN : wa.x + DOCK_MARGIN,
+    y: wa.y + DOCK_MARGIN,
+    width: DOCK_SIDE_WIDTH,
+    height: wa.height - DOCK_MARGIN * 2,
+  };
+}
+
+function applyWindowLayout() {
+  if (!win || win.isDestroyed()) return;
+  if (cfg.layout === 'dock') {
+    win.setMovable(false);
+    win.setBounds(dockBounds(windowMode, workAreaForWindow()));
+  } else {
+    win.setMovable(true);
+    win.setContentSize(WIDTH, Math.max(120, Math.min(900, contentHeight)));
+    clampToScreen();
+  }
+}
+
+function setWindowMode(mode) {
+  windowMode = mode === 'settings' ? 'settings' : 'widget';
+  if (cfg.layout === 'dock') applyWindowLayout();
+}
+
 function createWindow() {
+  const dock = cfg.layout === 'dock';
   const pos = cfg.bounds && typeof cfg.bounds.x === 'number' ? cfg.bounds : defaultPosition();
+  const dockB = dock ? dockBounds('widget', screen.getPrimaryDisplay().workArea) : null;
   win = new BrowserWindow({
-    width: WIDTH,
-    height: 420,
-    x: pos.x,
-    y: pos.y,
+    width: dockB ? dockB.width : WIDTH,
+    height: dockB ? dockB.height : 420,
+    x: dockB ? dockB.x : pos.x,
+    y: dockB ? dockB.y : pos.y,
     frame: false,
     transparent: true,
     resizable: false,
@@ -394,12 +453,14 @@ function createWindow() {
       sandbox: true,
     },
   });
+  win.setMovable(!dock);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
     win.show();
-    clampToScreen();
+    if (cfg.layout !== 'dock') clampToScreen();
   });
   win.on('moved', () => {
+    if (cfg.layout !== 'card' || windowMode === 'settings') return;
     const b = win.getBounds();
     cfg.bounds = { x: b.x, y: b.y };
     saveCfg();
@@ -795,6 +856,8 @@ ipcMain.handle('set-config', async (_e, patch) => {
   }
   if ('notify' in patch) cfg.notify = !!patch.notify;
   if (typeof patch.skin === 'string' && SKINS.includes(patch.skin)) cfg.skin = patch.skin;
+  if (patch.layout === 'card' || patch.layout === 'dock') cfg.layout = patch.layout;
+  if (['top', 'left', 'right'].includes(patch.dock)) cfg.dock = patch.dock;
   // Provider-declared settings: only known keys are accepted and validated by type.
   for (const field of SETTING_FIELDS) {
     if (!(field.key in patch)) continue;
@@ -803,6 +866,7 @@ ipcMain.handle('set-config', async (_e, patch) => {
   }
   if ('openAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.openAtLogin });
   if ('pinned' in patch && !!patch.pinned !== state.pinned) setPinned(!!patch.pinned);
+  applyWindowLayout();
   saveCfg();
   schedule();
   state.config = publicConfig();
@@ -812,11 +876,16 @@ ipcMain.handle('set-config', async (_e, patch) => {
   await refresh(undefined, true);
 });
 ipcMain.handle('hide', () => win && win.hide());
+ipcMain.handle('set-window-mode', (_e, mode) => setWindowMode(mode));
 ipcMain.on('resize', (_e, h) => {
   if (!win || win.isDestroyed()) return;
-  const height = Math.max(120, Math.min(900, Math.ceil(h)));
-  win.setContentSize(WIDTH, height);
-  clampToScreen();
+  contentHeight = Math.max(120, Math.min(900, Math.ceil(h)));
+  if (cfg.layout === 'dock') {
+    applyWindowLayout();
+  } else {
+    win.setContentSize(WIDTH, contentHeight);
+    clampToScreen();
+  }
 });
 
 // ---------- lifecycle ----------
@@ -840,6 +909,9 @@ if (!app.requestSingleInstanceLock()) {
     buildTrayMenu();
     refresh();
     schedule();
+    screen.on('display-metrics-changed', () => {
+      if (cfg.layout === 'dock') applyWindowLayout();
+    });
   });
 
   app.on('window-all-closed', (e) => e.preventDefault());

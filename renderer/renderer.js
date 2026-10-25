@@ -30,6 +30,11 @@ function applySkin(skin) {
   if (link.getAttribute('href') !== href) link.setAttribute('href', href);
 }
 
+function applyLayout(cfg) {
+  document.documentElement.dataset.layout = cfg.layout === 'dock' ? 'dock' : 'card';
+  document.documentElement.dataset.dock = ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top';
+}
+
 // Text for a code coming from a provider (`err.<code>` / `note.<code>`).
 // A code with no translation (e.g. an exception message) is shown as-is.
 function providerText(prefix, code, params) {
@@ -165,6 +170,7 @@ function render(state) {
   applyStrings(state);
   const cfg = state.config || {};
   applySkin(cfg.skin);
+  applyLayout(cfg);
   const enabled = cfg.enabled || {};
   const pin = $('#btn-pin');
   pin.classList.toggle('on', !!state.pinned);
@@ -226,6 +232,7 @@ function statusText(meta, p) {
 function openSettings(providerId) {
   if (!last) return;
   inSettings = true;
+  window.qw.setWindowMode('settings');
   view = providerId || 'main';
   const cfg = last.config || {};
   draft = {
@@ -235,6 +242,8 @@ function openSettings(providerId) {
     openAtLogin: !!cfg.openAtLogin,
     notify: cfg.notify !== false,
     skin: cfg.skin === 'paper' ? 'paper' : 'classic',
+    layout: cfg.layout === 'dock' ? 'dock' : 'card',
+    dock: ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top',
     enabled: { ...(cfg.enabled || {}) },
     providerIntervals: { ...(cfg.providerIntervals || {}) },
     hiddenWindows: JSON.parse(JSON.stringify(cfg.hiddenWindows || {})),
@@ -289,6 +298,30 @@ function mainScreen() {
   form.append(pin.wrap, login.wrap, notify.wrap, el('div', 'hint', t('s.notifications_hint')));
 
   form.append(el('h3', null, t('s.appearance')));
+  const layoutSel = document.createElement('select');
+  layoutSel.id = 'layout';
+  for (const [value, label] of [['card', t('s.layout_card')], ['dock', t('s.layout_dock')]]) {
+    const option = el('option', null, label);
+    option.value = value;
+    option.selected = draft.layout === value;
+    layoutSel.append(option);
+  }
+  const dockSel = document.createElement('select');
+  dockSel.id = 'dock';
+  for (const [value, label] of [['top', t('s.dock_top')], ['left', t('s.dock_left')], ['right', t('s.dock_right')]]) {
+    const option = el('option', null, label);
+    option.value = value;
+    option.selected = draft.dock === value;
+    dockSel.append(option);
+  }
+  const dockField = field(t('s.dock'), dockSel);
+  dockField.hidden = draft.layout !== 'dock';
+  layoutSel.onchange = () => {
+    draft.layout = layoutSel.value;
+    dockField.hidden = layoutSel.value !== 'dock';
+  };
+  dockSel.onchange = () => (draft.dock = dockSel.value);
+  form.append(field(t('s.layout'), layoutSel), dockField);
   form.append(el('div', 'hint', t('s.skin_hint')));
   const skinGallery = el('div', 'skin-gallery');
   const skinButtons = [];
@@ -1207,6 +1240,8 @@ async function saveSettings(button) {
     pinned: draft.pinned,
     openAtLogin: draft.openAtLogin,
     skin: draft.skin,
+    layout: draft.layout,
+    dock: draft.dock,
     enabled: { ...draft.enabled },
     providerIntervals: { ...draft.providerIntervals },
     notify: !!draft.notify,
@@ -1236,6 +1271,7 @@ async function saveSettings(button) {
 
 function closeSettings() {
   inSettings = false;
+  window.qw.setWindowMode('widget');
   draft = null;
   view = 'main';
   settings.hidden = true;

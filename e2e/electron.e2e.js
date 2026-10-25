@@ -169,4 +169,27 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   assert.equal(await page.locator('.svc-main', { hasText: 'Local test' }).count(), 0);
   await page.click('#btn-config');
   assert.equal(await page.locator('#list').getByText('Local test').count(), 0);
+
+  // Dock layout: top bar, settings panel, then back to the card.
+  await page.click('#btn-config');
+  await page.locator('#layout').selectOption('dock');
+  await page.locator('#dock').selectOption('top');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForFunction(() => document.documentElement.dataset.layout === 'dock' && document.documentElement.dataset.dock === 'top');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#list')).display), 'flex');
+  const topBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+  assert.ok(topBounds.width > 336);
+  assert.equal(topBounds.height, 112);
+
+  await page.click('#btn-config');
+  await page.waitForFunction(() => window.innerWidth === 360);
+  const settingsBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+  assert.equal(settingsBounds.width, 360);
+
+  await page.locator('#layout').selectOption('card');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForFunction(() => document.documentElement.dataset.layout === 'card');
+  await page.waitForFunction(() => window.innerWidth === 336);
+  const cardBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+  assert.equal(cardBounds.width, 336);
 });

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('qw', {
   copyText: (text) => ipcRenderer.invoke('copy-text', text),
   deleteCustomProvider: (id) => ipcRenderer.invoke('delete-custom-provider', id),
   togglePin: () => ipcRenderer.invoke('toggle-pin'),
+  setWindowMode: (mode) => ipcRenderer.invoke('set-window-mode', mode),
   hide: () => ipcRenderer.invoke('hide'),
   resize: (h) => ipcRenderer.send('resize', h),
   onState: (cb) => ipcRenderer.on('state', (_e, s) => cb(s)),

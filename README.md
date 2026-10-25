@@ -11,7 +11,7 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications, skins (Classic/Paper) and custom providers (guided form or JSON spec, templates and import/export).
+- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications, skins (Classic/Paper), layout (floating card or dock) and custom providers (guided form or JSON spec, templates and import/export).
 - Each service can override the global refresh interval. Failed updates back off exponentially (up to 60 minutes), while the last reading stays visible marked stale.
 - Optional notifications at 90% and on renewal, with a mute switch in Settings and the tray.
 - System tray icon; the window remembers its position.
@@ -85,6 +85,17 @@ Notes:
 - **Paper** — a light, editorial skin with serif headings, square rules and a paper background.
 
 Selecting a skin previews it live; **Save** persists it and **Cancel** reverts to the saved skin. The tray menu also has a **Skin** submenu. Skins are CSS-only, apply to the widget card, and leave the Settings screen readable. The choice lives in `config.json` and is included in backup/export.
+
+## Layout and dock
+
+**Settings → Appearance → Layout** chooses between:
+
+- **Card** — the floating 336px widget.
+- **Dock** — an edge overlay with the position **Top**, **Left** or **Right**.
+
+The top dock is a horizontal strip of the enabled providers (name, primary window, percentage and a compact note). The side dock is a full-height vertical rail with the full provider cards. The gear opens Settings in a 360px panel; closing it restores the dock.
+
+The dock is an always-on-top edge overlay; it does not reserve screen space like a native Windows AppBar. Auto-hide, multi-monitor pinning and drag-to-dock are not part of this version. The Classic and Paper skins apply to the dock as well.
 
 ## Custom providers
 

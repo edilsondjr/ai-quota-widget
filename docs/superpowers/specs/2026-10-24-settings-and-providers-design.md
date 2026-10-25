@@ -157,3 +157,13 @@ Refreshes run with a concurrency limit. A failed update keeps the last successfu
 - The widget can change surfaces, typography, borders and bars without touching the main-process data flow. The Settings screen stays readable; the skin primarily targets the widget card.
 - Settings → Appearance has a preview gallery with live preview, Save and Cancel-revert. The tray has a Skin submenu.
 - Imported/JS skins are intentionally out of scope for now; the built-in skins are curated and safe.
+
+## Dock layout (0.12.0)
+
+- `layout` is `card` or `dock`; `dock` is `top`, `left` or `right`. The defaults are `card` and `top`.
+- The top dock is a horizontal edge strip (`min(1100px, workArea - 24)` wide, 112px high) with one chip per enabled provider. It shows the primary window and a compact note; extra windows/details are hidden.
+- Side docks are 300px wide, full work-area height and scroll vertically.
+- The window geometry is owned by the main process. The renderer sends a `set-window-mode` (`settings`/`widget`) and content height; the main positions the dock on the display work area.
+- Settings opens as a 360px panel; closing it restores the dock. The panel is not a separate window.
+- This is an always-on-top overlay, not a native AppBar: it does not reserve desktop space. Auto-hide, multi-monitor pinning, drag-to-dock and AppBar integration remain future work.
+- The dock is covered by the existing E2E bounds test (top strip height, settings width, return to card).

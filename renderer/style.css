@@ -254,3 +254,37 @@ body { padding: 8px; }
 .btn:hover { filter: brightness(1.2); }
 .btn.primary { background: var(--accent); color: #0d1020; border-color: transparent; font-weight: 600; }
 .btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Dock layout: a horizontal top bar or a vertical edge rail. */
+[data-layout="dock"] body { padding: 4px; }
+[data-layout="dock"] #card { display: flex; flex-direction: column; height: calc(100vh - 8px); }
+[data-layout="dock"] #bar { flex: none; }
+[data-layout="dock"] #list { flex: 1; overflow-y: auto; }
+[data-layout="dock"] #settings { flex: 1; max-height: none; overflow-y: auto; }
+[data-layout="dock"] #foot { flex: none; }
+
+[data-layout="dock"][data-dock="top"] #bar { padding: 6px 8px 4px 12px; }
+[data-layout="dock"][data-dock="top"] #bar .title { font-size: 12px; }
+[data-layout="dock"][data-dock="top"] #list { display: flex; align-items: stretch; gap: 0; overflow-x: auto; overflow-y: hidden; padding: 0 12px; }
+[data-layout="dock"][data-dock="top"] #list::-webkit-scrollbar { height: 4px; }
+[data-layout="dock"][data-dock="top"] #list::-webkit-scrollbar-thumb { background: var(--track); border-radius: 2px; }
+[data-layout="dock"][data-dock="top"] .prov { flex: 0 0 176px; min-width: 0; padding: 8px 12px; border-top: 0; border-left: 1px solid var(--border); }
+[data-layout="dock"][data-dock="top"] .prov:first-child { border-left: 0; }
+[data-layout="dock"][data-dock="top"] .prov .head { margin-bottom: 4px; }
+[data-layout="dock"][data-dock="top"] .prov .plan,
+[data-layout="dock"][data-dock="top"] .prov .head .link,
+[data-layout="dock"][data-dock="top"] .prov .actions { display: none; }
+[data-layout="dock"][data-dock="top"] .prov .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-layout="dock"][data-dock="top"] .prov .win { margin: 0; }
+[data-layout="dock"][data-dock="top"] .prov .win:not(:first-of-type) { display: none; }
+[data-layout="dock"][data-dock="top"] .prov .win .row { font-size: 10px; margin-bottom: 2px; }
+[data-layout="dock"][data-dock="top"] .prov .track { height: 5px; }
+[data-layout="dock"][data-dock="top"] .prov .sub { display: none; }
+[data-layout="dock"][data-dock="top"] .prov .note { display: block; margin-top: 3px; font-size: 10px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-layout="dock"][data-dock="top"] .prov .err { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-layout="dock"][data-dock="top"] #foot { display: none; }
+
+[data-layout="dock"][data-dock="left"] #list,
+[data-layout="dock"][data-dock="right"] #list { padding: 2px 14px 6px; }
+[data-layout="dock"] #list::-webkit-scrollbar { width: 6px; }
+[data-layout="dock"] #list::-webkit-scrollbar-thumb { background: var(--track); border-radius: 3px; }

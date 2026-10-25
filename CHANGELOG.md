@@ -2,6 +2,19 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.12.0
+
+### Added
+
+- **Layout** setting: floating Card or Dock.
+- Dock positions **Top**, **Left** and **Right**, with adaptive window size and screen-edge placement.
+- A horizontal top strip with compact provider chips, a full-height side rail, and a 360px Settings panel while editing.
+- The dock choice persists in `config.json`; Classic and Paper skins apply to it.
+
+### Changed
+
+- The window can resize beyond the old fixed 336px card width when docked.
+
 ## 0.11.0
 
 ### Added
