@@ -2,8 +2,8 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, saf
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { getProviders, setCustomProviders, collect, release, clearSession, partitionFor, cleanUA, resetClaudeOrg } = require('./providers');
-const { fields: settingFields, secretKeys: secretKeysFor, meta: settingsMeta, coerce, configForDisk } = require('./providers/settings');
+const { getProviders, setCustomProviders, collect, release, clearSession, partitionFor, cleanUA, hardenSession, hardenWebContents, resetClaudeOrg } = require('./providers');
+const { fields: settingFields, secretKeys: secretKeysFor, meta: settingsMeta, coerce, hasPlaintextSecrets, configForDisk } = require('./providers/settings');
 const { buildCustomProvider, normalizeSpec, runCustom } = require('./providers/custom');
 const { mergeReading } = require('./providers/readings');
 const { translator } = require('./renderer/i18n');
@@ -452,8 +452,13 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webviewTag: false,
     },
   });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
+  win.webContents.on('will-redirect', (event) => event.preventDefault());
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault());
   win.setMovable(!dock);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => {
@@ -572,13 +577,16 @@ function openLogin(id) {
   const p = getProviders().find((x) => x.id === id);
   if (!p || !p.loginUrl) return;
   cleanUA(id);
+  hardenSession(id);
+  const partition = partitionFor(id);
   const w = new BrowserWindow({
     width: 480,
     height: 740,
     title: t('login.title', { name: p.name }),
     autoHideMenuBar: true,
-    webPreferences: { partition: partitionFor(id), contextIsolation: true, sandbox: true },
+    webPreferences: { partition, contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false },
   });
+  hardenWebContents(w.webContents, { allowHttpsPopups: true, partition });
   w.loadURL(p.loginUrl);
   w.on('closed', () => {
     if (id === 'claude') resetClaudeOrg();
@@ -728,10 +736,11 @@ async function importConfig(event) {
     if (raw.configVersion && Number(raw.configVersion) > CONFIG_VERSION) {
       return { ok: false, error: 'This config was written by a newer version' };
     }
-    for (const [k, v] of Object.entries(raw)) {
-      if (/(apiKey|ApiKey)$/.test(k) && typeof v === 'string' && v) {
-        return { ok: false, error: 'This config contains plaintext API keys. Export it from the current app first.' };
-      }
+    const plaintextApiKey = Object.entries(raw).some(
+      ([k, v]) => /(apiKey|ApiKey)$/.test(k) && typeof v === 'string' && v
+    );
+    if (plaintextApiKey || hasPlaintextSecrets(raw, SECRET_KEYS)) {
+      return { ok: false, error: 'This config contains plaintext API keys or tokens. Export it from the current app first.' };
     }
     if (Array.isArray(raw.customProviders) && raw.customProviders.length) {
       return { ok: false, error: 'This config contains plaintext custom providers. Export it from the current app first.' };

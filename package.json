@@ -1,6 +1,6 @@
 {
   "name": "quota-widget",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "Always-on-top Windows widget that tracks your AI usage quotas across providers, with reset countdowns",
   "main": "main.js",
   "scripts": {
@@ -10,8 +10,8 @@
     "dist": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
-    "electron": "^36.0.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "playwright-core": "^1.64.1"
   },
   "build": {
@@ -54,6 +54,9 @@
   "author": {
     "name": "BeamGlyph",
     "url": "https://www.beamglyph.com"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "homepage": "https://github.com/edilsondjr/ai-quota-widget",
   "license": "MIT",

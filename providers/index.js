@@ -4,7 +4,7 @@
 // To add a provider: create providers/<id>.js exporting
 //   { id, name, loginUrl, settings, run(cfg) -> { windows, plan?, note? } | { error } | { action } }
 // and add it to the list below.
-const { partitionFor, cleanUA, clearSession, dropHidden } = require('./browser');
+const { partitionFor, cleanUA, hardenSession, hardenWebContents, clearSession, dropHidden } = require('./browser');
 const claude = require('./claude');
 
 const BUILTIN_PROVIDERS = [
@@ -63,5 +63,7 @@ module.exports = {
   clearSession,
   partitionFor,
   cleanUA,
+  hardenSession,
+  hardenWebContents,
   resetClaudeOrg: claude.reset,
 };

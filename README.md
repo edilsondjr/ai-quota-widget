@@ -36,7 +36,7 @@ Get-FileHash .\Quota-Widget-Setup-*.exe -Algorithm SHA256
 
 ## Build from source
 
-Requires Node.js 20+, Git and Windows. No admin rights or extra build tools.
+Requires Node.js 22.12+, Git and Windows. No admin rights or extra build tools.
 
 ```bash
 git clone https://github.com/edilsondjr/ai-quota-widget.git

@@ -111,6 +111,7 @@ function normalizeSpec(input) {
   const authHeader = typeof input.authHeader === 'string' && input.authHeader.trim() ? input.authHeader.trim() : 'Authorization';
   if (auth === 'header' && !/^[A-Za-z0-9-]+$/.test(authHeader)) return { ok: false, error: 'Header name is invalid' };
   const authPrefix = typeof input.authPrefix === 'string' ? input.authPrefix : '';
+  if (/[\r\n]/.test(authPrefix)) return { ok: false, error: 'Auth prefix contains an invalid character' };
 
   const headers = {};
   if (input.headers != null) {
@@ -118,6 +119,7 @@ function normalizeSpec(input) {
     for (const [key, value] of Object.entries(input.headers)) {
       if (!/^[A-Za-z0-9-]+$/.test(key)) return { ok: false, error: `Invalid header: ${key}` };
       if (typeof value !== 'string') return { ok: false, error: `Header ${key} must be a string` };
+      if (/[\r\n]/.test(value)) return { ok: false, error: `Header ${key} contains an invalid character` };
       headers[key] = value;
       if (Object.keys(headers).length > 30) return { ok: false, error: 'Too many headers' };
     }

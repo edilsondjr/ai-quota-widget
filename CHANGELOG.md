@@ -2,6 +2,15 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.14.1
+
+### Security
+
+- Updated Electron to 45, electron-builder to 26.18 and the build requirement to Node 22.12+; `npm audit` is clean.
+- Hardened provider login/browser windows: permissions denied by default, non-HTTPS navigation blocked, popups limited, and the main window cannot navigate or open new windows.
+- Config import now rejects every known plaintext secret field, not only keys ending in `apiKey`, and custom-provider headers reject CR/LF injection.
+- Added stricter CSP directives and explicit `nodeIntegration: false`/`webviewTag: false` on provider windows.
+
 ## 0.14.0
 
 ### Added

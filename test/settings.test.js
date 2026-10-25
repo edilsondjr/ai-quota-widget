@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { PROVIDERS } = require('../providers');
-const { fields, secretKeys, meta, coerce, configForDisk } = require('../providers/settings');
+const { fields, secretKeys, meta, coerce, hasPlaintextSecrets, configForDisk } = require('../providers/settings');
 
 test('only Claude and ChatGPT expose browser sign-in', () => {
   assert.deepEqual(PROVIDERS.filter((p) => p.loginUrl).map((p) => p.id), ['claude', 'chatgpt']);
@@ -58,6 +58,13 @@ test('coerce validates by type and range', () => {
   const flag = { key: 'f', type: 'boolean' };
   assert.deepEqual(coerce(flag, 1), { ok: true, value: true });
   assert.deepEqual(coerce({ key: 'u', type: 'nope' }, 'x'), { ok: false });
+});
+
+test('hasPlaintextSecrets detects all known secret fields, not only API keys', () => {
+  assert.equal(hasPlaintextSecrets({ githubToken: 'ghp_secret' }, ['githubToken']), true);
+  assert.equal(hasPlaintextSecrets({ openaiAdminKey: 'sk-admin' }, ['openaiAdminKey']), true);
+  assert.equal(hasPlaintextSecrets({ githubToken: '' }, ['githubToken']), false);
+  assert.equal(hasPlaintextSecrets({ language: 'en-US' }, ['githubToken']), false);
 });
 
 test('configForDisk never writes plaintext secrets', () => {

@@ -5,7 +5,7 @@ You don't have to trust a downloaded installer: you can build the app from sourc
 ## Requirements
 
 - Windows 10 or 11 (x64)
-- [Node.js](https://nodejs.org) 20 or newer (includes `npm`)
+- [Node.js](https://nodejs.org) 22.12 or newer (includes `npm`)
 - [Git](https://git-scm.com)
 
 No admin rights, Visual Studio or other build tools are needed.

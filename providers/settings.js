@@ -44,6 +44,11 @@ function coerce(field, value) {
 
 // Config written to disk. Secret values never leave this function in plain text:
 // they are either encrypted by `encrypt` or dropped (when encryption is unavailable).
+function hasPlaintextSecrets(raw, secretKeys) {
+  if (!raw || typeof raw !== 'object') return false;
+  return secretKeys.some((key) => typeof raw[key] === 'string' && raw[key]);
+}
+
 function configForDisk(cfg, secretKeys, encrypt) {
   const out = { ...cfg };
   for (const k of secretKeys) delete out[k];
@@ -56,4 +61,4 @@ function configForDisk(cfg, secretKeys, encrypt) {
   return out;
 }
 
-module.exports = { fields, secretKeys, meta, coerce, configForDisk };
+module.exports = { fields, secretKeys, meta, coerce, hasPlaintextSecrets, configForDisk };

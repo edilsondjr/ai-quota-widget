@@ -8,6 +8,52 @@ function partitionFor(id) {
   return `persist:qw-${id}`;
 }
 
+const hardened = new Set();
+const isHttps = (url) => {
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+};
+
+const secureWebPreferences = (partition) => ({
+  partition,
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true,
+  webviewTag: false,
+});
+
+function hardenSession(id) {
+  if (hardened.has(id)) return;
+  const ses = electron().session.fromPartition(partitionFor(id));
+  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  if (typeof ses.setPermissionCheckHandler === 'function') {
+    ses.setPermissionCheckHandler(() => false);
+  }
+  hardened.add(id);
+}
+
+function hardenWebContents(webContents, { allowHttpsPopups = false, partition } = {}) {
+  webContents.setWindowOpenHandler(({ url }) => {
+    if (!allowHttpsPopups || !isHttps(url)) return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: { webPreferences: secureWebPreferences(partition) },
+    };
+  });
+  const guard = (event, url) => {
+    if (!isHttps(url)) event.preventDefault();
+  };
+  webContents.on('will-navigate', guard);
+  webContents.on('will-redirect', guard);
+  webContents.on('will-attach-webview', (event) => event.preventDefault());
+  webContents.on('did-create-window', (child) => {
+    hardenWebContents(child.webContents, { allowHttpsPopups: false, partition });
+  });
+}
+
 const uaDone = new Set();
 function cleanUA(id) {
   if (uaDone.has(id)) return;
@@ -28,13 +74,15 @@ async function getHidden(id, origin) {
   let win = hidden.get(id);
   if (win && !win.isDestroyed()) return win;
   cleanUA(id);
+  hardenSession(id);
   const { BrowserWindow } = electron();
   win = new BrowserWindow({
     show: false,
     width: 800,
     height: 600,
-    webPreferences: { partition: partitionFor(id), contextIsolation: true, sandbox: true },
+    webPreferences: secureWebPreferences(partitionFor(id)),
   });
+  hardenWebContents(win.webContents, { partition: partitionFor(id) });
   hidden.set(id, win);
   try {
     await win.loadURL(origin + '/robots.txt');
@@ -70,4 +118,4 @@ async function clearSession(id) {
 // fetch using the Electron network stack (for API-key endpoints, no cookies)
 const netFetch = (...args) => electron().net.fetch(...args);
 
-module.exports = { partitionFor, cleanUA, pageFetch, clearSession, dropHidden, netFetch };
+module.exports = { partitionFor, cleanUA, hardenSession, hardenWebContents, pageFetch, clearSession, dropHidden, netFetch };

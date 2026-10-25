@@ -74,6 +74,14 @@ test('custom: normalizeSpec applies defaults and validates URLs and mappings', (
     normalizeSpec({ name: 'x', url: 'https://x.test', mapping: { windows: [{ key: 'm', percent: 'p' }] }, auth: 'header', authHeader: 'bad header' }).ok,
     false
   );
+  assert.equal(
+    normalizeSpec({ name: 'x', url: 'https://x.test', mapping: { windows: [{ key: 'm', percent: 'p' }] }, headers: { 'X-Test': 'a\r\nInjected: yes' } }).ok,
+    false
+  );
+  assert.equal(
+    normalizeSpec({ name: 'x', url: 'https://x.test', mapping: { windows: [{ key: 'm', percent: 'p' }] }, auth: 'header', authPrefix: 'x\r\n' }).ok,
+    false
+  );
 });
 
 test('custom: parseCustom supports safe expressions', () => {
