@@ -93,7 +93,7 @@ Selecting a skin previews it live; **Save** persists it and **Cancel** reverts t
 - **Card** — the floating 336px widget.
 - **Dock** — an edge overlay with the position **Top**, **Left** or **Right**.
 
-The top dock is a horizontal strip of the enabled providers (name, primary window, percentage and a compact note). The side dock is a full-height vertical rail with the full provider cards. The gear opens Settings in a 360px panel; closing it restores the dock.
+The top dock is a horizontal strip of the enabled providers. Each provider shows its name and plan at the left and all its usage windows in a compact two-column grid at the right, with the note below. The side dock is a full-height vertical rail with the full provider cards. The gear opens Settings in a 360px panel; closing it restores the dock.
 
 The dock is an always-on-top edge overlay; it does not reserve screen space like a native Windows AppBar. Auto-hide, multi-monitor pinning and drag-to-dock are not part of this version. The Classic and Paper skins apply to the dock as well.
 

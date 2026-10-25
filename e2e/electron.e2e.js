@@ -167,8 +167,11 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByRole('button', { name: 'Save' }).click();
   await page.waitForFunction(() => document.documentElement.dataset.layout === 'dock' && document.documentElement.dataset.dock === 'top');
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#list')).display), 'flex');
+  assert.equal(await page.locator('#list .prov .win').count(), 2);
   assert.ok(await page.locator('#list .prov .win').first().isVisible());
+  assert.ok(await page.locator('#list .prov .win').nth(1).isVisible());
   await page.locator('#list .prov').first().getByText('Month').waitFor();
+  await page.locator('#list .prov').first().getByText('Week').waitFor();
   const topBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
   assert.ok(topBounds.width > 336);
   assert.equal(topBounds.height, 112);

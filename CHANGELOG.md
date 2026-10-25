@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.12.2
+
+### Changed
+
+- The top dock now shows every usage window for each provider in a compact two-column grid, with the provider name/plan at the left and the note below. Chips are 210px wide, so the typical five providers fit in the strip.
+
 ## 0.12.1
 
 ### Fixed
