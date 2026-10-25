@@ -31,11 +31,13 @@ Requires Node.js 20+, Git and Windows. No admin rights or extra build tools.
 git clone https://github.com/edilsondjr/ai-quota-widget.git
 cd ai-quota-widget
 npm install
-npm start          # run from source
-npm run dist       # build the installer into dist/
+npm test            # unit tests (parsers, settings, locales, expressions)
+npm run test:e2e    # Electron UI test on Windows
+npm start           # run from source
+npm run dist        # build the installer into dist/
 ```
 
-The build also leaves a ready-to-run copy in `dist/win-unpacked/`. More detail, silent install and troubleshooting: [docs/BUILDING.md](docs/BUILDING.md).
+The build also leaves a ready-to-run copy in `dist/win-unpacked/`. The release installer is built by GitHub Actions from a `v*` tag. More detail, silent install and troubleshooting: [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Where the data comes from
 
