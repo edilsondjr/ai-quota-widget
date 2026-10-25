@@ -6,6 +6,8 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 
 > Also available in: [Português (pt-BR)](docs/README.pt-BR.md) · [Español](docs/README.es.md)
 
+> UI languages: English, Español, Português (Brasil), 简体中文, 日本語, Deutsch.
+
 <p align="center"><img src="docs/screenshot.png" alt="Quota Widget showing Claude, ChatGPT, Command Code and Ollama usage bars" width="420"></p>
 
 ## Features
@@ -198,7 +200,7 @@ Config version 2 stores custom-provider specs in `customProvidersEnc`. Existing 
 
 ## Privacy and responsibility
 
-The widget only talks to the services above, using your own account. It does not collect telemetry. Accessing undocumented endpoints may be against a provider's terms of service; use it at your own risk and only with your own accounts.
+See [PRIVACY.md](PRIVACY.md) for the full privacy policy. The widget only talks to the services above, using your own account or session. It does not collect telemetry. Some providers do not document the quota endpoints used here; review their terms before enabling a provider. The app uses only your own account/session and does not bypass authentication.
 
 This project is independent and not affiliated with, endorsed by, or sponsored by any of the services listed above. All product names are trademarks of their owners.
 

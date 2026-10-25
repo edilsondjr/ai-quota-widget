@@ -2,6 +2,17 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.13.0
+
+### Added
+
+- UI translations for Simplified Chinese (`zh-CN`), Japanese (`ja-JP`) and German (`de-DE`), available in Settings.
+- `PRIVACY.md` documenting local storage, encrypted API keys, network behavior and the absence of telemetry.
+
+### Changed
+
+- README lists the available UI languages and links to the privacy policy.
+
 ## 0.12.3
 
 ### Changed
