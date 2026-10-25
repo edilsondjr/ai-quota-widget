@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.12.1
+
+### Fixed
+
+- The top dock hid every usage window because the `:first-of-type` selector matched the provider header instead of the first window. The first consumption window is visible again; extra windows remain compacted.
+
 ## 0.12.0
 
 ### Added

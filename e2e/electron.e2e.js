@@ -160,23 +160,15 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.locator('#list').getByText('Local test').waitFor();
   await page.locator('#list').getByText('Balance: 13').waitFor();
 
-  // Delete from the detail, accepting the confirm dialog.
-  await page.click('#btn-config');
-  await page.locator('.svc-main', { hasText: 'Local test' }).click();
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'Delete custom provider' }).click();
-  await page.getByRole('button', { name: 'Add custom provider' }).waitFor();
-  assert.equal(await page.locator('.svc-main', { hasText: 'Local test' }).count(), 0);
-  await page.click('#btn-config');
-  assert.equal(await page.locator('#list').getByText('Local test').count(), 0);
-
-  // Dock layout: top bar, settings panel, then back to the card.
+  // Dock layout: top bar with consumption, settings panel, then back to the card.
   await page.click('#btn-config');
   await page.locator('#layout').selectOption('dock');
   await page.locator('#dock').selectOption('top');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.waitForFunction(() => document.documentElement.dataset.layout === 'dock' && document.documentElement.dataset.dock === 'top');
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#list')).display), 'flex');
+  assert.ok(await page.locator('#list .prov .win').first().isVisible());
+  await page.locator('#list .prov').first().getByText('Month').waitFor();
   const topBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
   assert.ok(topBounds.width > 336);
   assert.equal(topBounds.height, 112);
@@ -192,4 +184,14 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.waitForFunction(() => window.innerWidth === 336);
   const cardBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
   assert.equal(cardBounds.width, 336);
+
+  // Delete from the detail, accepting the confirm dialog.
+  await page.click('#btn-config');
+  await page.locator('.svc-main', { hasText: 'Local test' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Delete custom provider' }).click();
+  await page.getByRole('button', { name: 'Add custom provider' }).waitFor();
+  assert.equal(await page.locator('.svc-main', { hasText: 'Local test' }).count(), 0);
+  await page.click('#btn-config');
+  assert.equal(await page.locator('#list').getByText('Local test').count(), 0);
 });

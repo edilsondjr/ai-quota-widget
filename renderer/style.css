@@ -276,7 +276,7 @@ body { padding: 8px; }
 [data-layout="dock"][data-dock="top"] .prov .actions { display: none; }
 [data-layout="dock"][data-dock="top"] .prov .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-layout="dock"][data-dock="top"] .prov .win { margin: 0; }
-[data-layout="dock"][data-dock="top"] .prov .win:not(:first-of-type) { display: none; }
+[data-layout="dock"][data-dock="top"] .prov .win ~ .win { display: none; }
 [data-layout="dock"][data-dock="top"] .prov .win .row { font-size: 10px; margin-bottom: 2px; }
 [data-layout="dock"][data-dock="top"] .prov .track { height: 5px; }
 [data-layout="dock"][data-dock="top"] .prov .sub { display: none; }
