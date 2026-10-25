@@ -8,6 +8,8 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 
 > UI languages: English, Español, Português (Brasil), 简体中文, 日本語, Deutsch.
 
+> [Website](https://beamglyph.com/quota-widget/) · [Latest release](https://github.com/edilsondjr/ai-quota-widget/releases/latest) · [Privacy](PRIVACY.md)
+
 <p align="center"><img src="docs/screenshot.png" alt="Quota Widget showing Claude, ChatGPT, Command Code and Ollama usage bars" width="420"></p>
 
 ## Features
