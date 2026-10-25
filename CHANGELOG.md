@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.12.3
+
+### Changed
+
+- More breathing room in the top dock: 128px tall, 208px chips, a 76px name/plan column and usage windows in a single readable column. The typical five providers still fit.
+
 ## 0.12.2
 
 ### Changed

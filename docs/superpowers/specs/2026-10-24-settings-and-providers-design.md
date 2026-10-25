@@ -161,7 +161,7 @@ Refreshes run with a concurrency limit. A failed update keeps the last successfu
 ## Dock layout (0.12.0)
 
 - `layout` is `card` or `dock`; `dock` is `top`, `left` or `right`. The defaults are `card` and `top`.
-- The top dock is a horizontal edge strip (`min(1100px, workArea - 24)` wide, 112px high) with one chip per enabled provider. The provider name and plan sit at the left; every usage window is shown in a compact two-column grid at the right; the note spans the bottom. Resets/details stay compact (the full card and side dock show them).
+- The top dock is a horizontal edge strip (`min(1100px, workArea - 24)` wide, 128px high) with one chip per enabled provider (208px wide). The provider name and plan sit at the left; every usage window is shown in a single compact column at the right; the note spans the bottom. Resets/details stay compact (the full card and side dock show them).
 - Side docks are 300px wide, full work-area height and scroll vertically.
 - The window geometry is owned by the main process. The renderer sends a `set-window-mode` (`settings`/`widget`) and content height; the main positions the dock on the display work area.
 - Settings opens as a 360px panel; closing it restores the dock. The panel is not a separate window.

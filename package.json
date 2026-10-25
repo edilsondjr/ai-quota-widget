@@ -1,6 +1,6 @@
 {
   "name": "quota-widget",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "Always-on-top Windows widget that tracks your AI usage quotas across providers, with reset countdowns",
   "main": "main.js",
   "scripts": {

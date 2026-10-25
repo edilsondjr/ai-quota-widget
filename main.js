@@ -56,7 +56,7 @@ const LEGACY_WINDOW_KEYS = {
 };
 
 const WIDTH = 336;
-const DOCK_TOP_HEIGHT = 112;
+const DOCK_TOP_HEIGHT = 128;
 const DOCK_SIDE_WIDTH = 300;
 const DOCK_SETTINGS_WIDTH = 360;
 const DOCK_MARGIN = 12;

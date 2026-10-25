@@ -174,7 +174,7 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.locator('#list .prov').first().getByText('Week').waitFor();
   const topBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
   assert.ok(topBounds.width > 336);
-  assert.equal(topBounds.height, 112);
+  assert.equal(topBounds.height, 128);
 
   await page.click('#btn-config');
   await page.waitForFunction(() => window.innerWidth === 360);
