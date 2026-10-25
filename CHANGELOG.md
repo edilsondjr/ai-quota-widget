@@ -2,6 +2,18 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.14.0
+
+### Added
+
+- Manual **Check for updates** in Settings. It queries GitHub Releases and opens the release page; it never downloads or installs automatically.
+- `SHA256SUMS.txt` on every release.
+- Bug report and provider request issue templates.
+
+### Changed
+
+- The privacy policy documents the optional GitHub release check.
+
 ## 0.13.0
 
 ### Added

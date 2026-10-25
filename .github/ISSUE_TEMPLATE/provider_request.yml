@@ -1,0 +1,62 @@
+name: Provider request
+description: Suggest a new provider or an endpoint change
+title: "[Provider]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste API keys, cookies, tokens or private account data. Use
+        redacted examples only.
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name
+      placeholder: Example AI service
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: API documentation or endpoint
+      description: A public docs URL, or the endpoint path if there is no public docs.
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication
+      options:
+        - API key
+        - Browser session / cookies
+        - Bearer token
+        - No authentication
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: windows
+    attributes:
+      label: Usage windows
+      description: Which limits or balances should the widget show, and when do they reset?
+      placeholder: |
+        - 5-hour session: ...
+        - Weekly: ...
+    validations:
+      required: true
+  - type: textarea
+    id: response
+    attributes:
+      label: Redacted response example
+      description: Remove keys, account IDs, emails and other private values.
+      render: json
+    validations:
+      required: false
+  - type: checkboxes
+    id: test
+    attributes:
+      label: Testing
+      options:
+        - label: I can test a provider implementation with my own account.
+          required: false
+        - label: I removed secrets and personal data from this request.
+          required: true

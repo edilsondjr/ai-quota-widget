@@ -13,7 +13,8 @@ and the app.
 - API keys and custom-provider specs are encrypted at rest with Windows DPAPI
   through Electron `safeStorage`, tied to your Windows user.
 - The app connects only to the provider endpoints you enable or configure,
-  using your own account or session.
+  using your own account or session, and to GitHub's public releases API only
+  when you explicitly click **Check for updates**.
 - You can remove providers, reset local data and uninstall at any time.
 
 ## Data stored on your computer
@@ -36,7 +37,8 @@ not write API keys in plain text.
 
 ## Network connections
 
-The app makes requests only to the services you enable:
+The app makes requests only to the services you enable, plus GitHub when you
+explicitly check for updates:
 
 - API endpoints for the providers listed in the README: Claude, ChatGPT
   (Codex), Command Code, Ollama, OpenRouter, DeepSeek, Moonshot, GitHub
@@ -44,6 +46,7 @@ The app makes requests only to the services you enable:
   OpenCode Go.
 - The exact URL you configure for a custom provider.
 - Any local endpoint you configure for a custom provider.
+- GitHub's public releases API when you click **Check for updates**.
 
 Requests carry your API key, browser session or other credentials as required
 by that provider. They go directly to the provider; BeamGlyph does not proxy or
@@ -55,6 +58,14 @@ policies. Some providers do not publicly document the quota endpoints used
 here; review the provider's terms before enabling it. The app uses only the
 account or session you configure and does not bypass authentication or access
 other users' data.
+
+## Update checks
+
+Quota Widget does not check for updates automatically. If you click **Check for
+updates**, the app requests the latest release tag from GitHub's public API. The
+request includes the app version in the User-Agent; GitHub can see your IP
+address. No account, telemetry or usage data is sent. The app does not download
+or install anything; it only opens the release page when a newer version exists.
 
 ## What we do not collect
 

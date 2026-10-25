@@ -436,6 +436,41 @@ function mainScreen() {
   configActions.append(backup, exportBtn, importBtn, resetBtn);
   form.append(configActions);
 
+  form.append(el('h3', null, t('s.updates')));
+  form.append(el('div', 'hint', t('s.updates_hint')));
+  const updateActions = el('div', 'config-actions');
+  const checkUpdateBtn = el('button', 'btn', t('s.update_check'));
+  checkUpdateBtn.type = 'button';
+  const openReleaseBtn = el('button', 'btn', t('s.update_open'));
+  openReleaseBtn.type = 'button';
+  openReleaseBtn.hidden = true;
+  const updateStatus = el('div', 'hint');
+  updateStatus.setAttribute('aria-live', 'polite');
+  checkUpdateBtn.onclick = async () => {
+    checkUpdateBtn.disabled = true;
+    openReleaseBtn.hidden = true;
+    updateStatus.textContent = t('s.update_checking');
+    try {
+      const res = await window.qw.checkUpdate();
+      if (!res || !res.ok) {
+        updateStatus.textContent = t('s.update_error');
+      } else if (res.available) {
+        updateStatus.textContent = t('s.update_available', { version: res.latest });
+        openReleaseBtn.hidden = false;
+      } else {
+        updateStatus.textContent = t('s.update_current', { version: res.current || last.version });
+      }
+    } catch (_) {
+      updateStatus.textContent = t('s.update_error');
+    } finally {
+      checkUpdateBtn.disabled = false;
+      fitWindow();
+    }
+  };
+  openReleaseBtn.onclick = () => window.qw.openRelease();
+  updateActions.append(checkUpdateBtn, openReleaseBtn);
+  form.append(updateActions, updateStatus);
+
   form.append(actions());
   return form;
 }

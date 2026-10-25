@@ -17,13 +17,20 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 - Each service can override the global refresh interval. Failed updates back off exponentially (up to 60 minutes), while the last reading stays visible marked stale.
 - Optional notifications at 90% and on renewal, with a mute switch in Settings and the tray.
 - System tray icon; the window remembers its position.
-- Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json`, the encrypted-custom-provider blob and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys and custom-provider specs are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the values in plain text. Nothing is sent anywhere except to the services themselves.
+- Manual **Check for updates** in Settings; it opens the latest GitHub release page and never downloads or installs updates automatically.
+- Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json`, the encrypted-custom-provider blob and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys and custom-provider specs are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the values in plain text. Nothing is sent anywhere except to the services themselves and, when you explicitly check for updates, GitHub's public releases API.
 
 ## Install
 
 Download `Quota-Widget-Setup-<version>.exe` from the [Releases](../../releases) page and run it. No admin rights needed.
 
 The installer is **not code-signed**, so Windows SmartScreen may warn on first run: click *More info*, then *Run anyway*. If you would rather not run a downloaded installer, build it yourself (below): a locally built app never triggers that warning.
+
+New releases include `SHA256SUMS.txt`. To verify the installer:
+
+```powershell
+Get-FileHash .\Quota-Widget-Setup-*.exe -Algorithm SHA256
+```
 
 ## Build from source
 
@@ -200,7 +207,7 @@ Config version 2 stores custom-provider specs in `customProvidersEnc`. Existing 
 
 ## Privacy and responsibility
 
-See [PRIVACY.md](PRIVACY.md) for the full privacy policy. The widget only talks to the services above, using your own account or session. It does not collect telemetry. Some providers do not document the quota endpoints used here; review their terms before enabling a provider. The app uses only your own account/session and does not bypass authentication.
+See [PRIVACY.md](PRIVACY.md) for the full privacy policy. The widget only talks to the services above, plus GitHub Releases when you explicitly check for updates, using your own account or session. It does not collect telemetry. Some providers do not document the quota endpoints used here; review their terms before enabling a provider. The app uses only your own account/session and does not bypass authentication.
 
 This project is independent and not affiliated with, endorsed by, or sponsored by any of the services listed above. All product names are trademarks of their owners.
 

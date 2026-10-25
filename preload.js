@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('qw', {
   exportConfig: () => ipcRenderer.invoke('export-config'),
   importConfig: () => ipcRenderer.invoke('import-config'),
   resetConfig: () => ipcRenderer.invoke('reset-config'),
+  checkUpdate: () => ipcRenderer.invoke('check-update'),
+  openRelease: () => ipcRenderer.invoke('open-release'),
   setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
   saveCustomProvider: (input) => ipcRenderer.invoke('save-custom-provider', input),
   testCustomProvider: (input) => ipcRenderer.invoke('test-custom-provider', input),

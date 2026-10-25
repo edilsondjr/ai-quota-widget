@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage, clipboard, dialog, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, shell, safeStorage, clipboard, dialog, Notification, net } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -8,6 +8,7 @@ const { buildCustomProvider, normalizeSpec, runCustom } = require('./providers/c
 const { mergeReading } = require('./providers/readings');
 const { translator } = require('./renderer/i18n');
 const { prepareDataDir, sanitizeLegacyConfig, writeJsonAtomic } = require('./app-data');
+const { checkForUpdates, RELEASES_URL } = require('./update');
 
 // The provider list = built-ins + user-defined custom providers from config.
 // SETTING_FIELDS/SECRET_KEYS are rebuilt whenever the custom list changes.
@@ -800,6 +801,20 @@ ipcMain.handle('backup-config', () => {
 ipcMain.handle('export-config', (event) => exportConfig(event));
 ipcMain.handle('import-config', (event) => importConfig(event));
 ipcMain.handle('reset-config', () => resetConfig());
+ipcMain.handle('check-update', async () => {
+  try {
+    return {
+      ok: true,
+      ...(await checkForUpdates({
+        currentVersion: app.getVersion(),
+        fetchImpl: (url, options) => net.fetch(url, options),
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+});
+ipcMain.handle('open-release', () => shell.openExternal(RELEASES_URL));
 ipcMain.handle('save-custom-provider', async (_e, input) => {
   const result = saveCustomProvider(input);
   if (result.ok) await refresh(undefined, true);

@@ -1,0 +1,80 @@
+name: Bug report
+description: Report a problem with Quota Widget
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Quota Widget. Do not paste API keys, cookies,
+        tokens, config files or other secrets. Redact sensitive values.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Quota Widget version
+      description: Shown in Settings or in the installer filename.
+      placeholder: 0.13.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Claude
+        - ChatGPT/Codex
+        - Command Code
+        - Ollama
+        - OpenRouter
+        - DeepSeek
+        - Moonshot
+        - GitHub Copilot
+        - Synthetic
+        - NanoGPT
+        - OpenAI API
+        - Anthropic API
+        - xAI
+        - Mistral
+        - OpenCode Go
+        - Custom provider
+        - Not provider-specific
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic (optional)
+      description: Settings → service → Copy diagnostic. Remove secrets first.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Sensitive data
+      options:
+        - label: I removed API keys, cookies, tokens and personal data from this report.
+          required: true
