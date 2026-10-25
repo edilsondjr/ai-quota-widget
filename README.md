@@ -11,7 +11,7 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications and custom providers (guided form or JSON spec, templates and import/export).
+- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications, skins (Classic/Paper) and custom providers (guided form or JSON spec, templates and import/export).
 - Each service can override the global refresh interval. Failed updates back off exponentially (up to 60 minutes), while the last reading stays visible marked stale.
 - Optional notifications at 90% and on renewal, with a mute switch in Settings and the tray.
 - System tray icon; the window remembers its position.
@@ -76,6 +76,15 @@ Notes:
 - Mistral uses its billing endpoints (`/v1/billing/usage` and `/v1/billing/subscription`). The documented admin `/v1/admin/usage` response is a raw usage/price catalog without a simple total.
 - OpenCode's `/zen/go/v1/usage` is the endpoint used by its console and covers OpenCode Go plans only; it is not yet in the public Go docs.
 - If an update fails, the card keeps the last successful reading and shows a stale notice instead of going blank on a transient error.
+
+## Skins
+
+**Settings → Appearance** offers built-in skins:
+
+- **Classic** — the current dark widget.
+- **Paper** — a light, editorial skin with serif headings, square rules and a paper background.
+
+Selecting a skin previews it live; **Save** persists it and **Cancel** reverts to the saved skin. The tray menu also has a **Skin** submenu. Skins are CSS-only, apply to the widget card, and leave the Settings screen readable. The choice lives in `config.json` and is included in backup/export.
 
 ## Custom providers
 

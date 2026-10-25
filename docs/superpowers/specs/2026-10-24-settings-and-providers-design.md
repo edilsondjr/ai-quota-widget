@@ -149,3 +149,11 @@ The main process validates the spec (HTTPS or localhost, max size, unique window
 - The service detail can copy a diagnostic JSON (no secrets) for bug reports.
 
 Refreshes run with a concurrency limit. A failed update keeps the last successful reading (marked stale) instead of blanking the card. Config writes are atomic and carry a `configVersion` for future migrations.
+
+## Skins (0.11.0)
+
+- `config.json` stores a non-secret `skin` (`classic` or `paper`); Classic is the default.
+- Skins are CSS-only and loaded with a separate stylesheet after the base CSS. `data-skin` selects the active skin.
+- The widget can change surfaces, typography, borders and bars without touching the main-process data flow. The Settings screen stays readable; the skin primarily targets the widget card.
+- Settings → Appearance has a preview gallery with live preview, Save and Cancel-revert. The tray has a Skin submenu.
+- Imported/JS skins are intentionally out of scope for now; the built-in skins are curated and safe.

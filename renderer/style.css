@@ -161,6 +161,12 @@ body { padding: 8px; }
 .config-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
 .config-actions .btn { padding: 4px 10px; font-size: 12px; }
 .btn.danger { border-color: rgba(239, 91, 91, 0.5); color: var(--bad); }
+.skin-gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 12px; }
+.skin-option { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--track); color: var(--text); cursor: pointer; text-align: left; font: inherit; }
+.skin-option img { display: block; width: 100%; height: auto; border-radius: 3px; border: 1px solid var(--border); }
+.skin-option .skin-name { font-size: 11.5px; color: var(--muted); }
+.skin-option.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.skin-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mode-row { display: flex; gap: 6px; margin: 8px 0 4px; }
 .mode-row .btn { padding: 4px 10px; font-size: 12px; }
 .mode-row .btn.on { color: var(--accent); border-color: var(--accent); background: rgba(122, 162, 255, 0.12); }

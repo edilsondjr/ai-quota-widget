@@ -19,6 +19,17 @@ function applyStrings(state) {
   document.querySelectorAll('[data-i18n-title]').forEach((n) => (n.title = t(n.dataset.i18nTitle)));
 }
 
+const SKINS = ['classic', 'paper'];
+
+function applySkin(skin) {
+  const id = SKINS.includes(skin) ? skin : 'classic';
+  if (document.documentElement.dataset.skin !== id) document.documentElement.dataset.skin = id;
+  const link = document.getElementById('skin-css');
+  if (!link) return;
+  const href = `skins/${id}.css`;
+  if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+}
+
 // Text for a code coming from a provider (`err.<code>` / `note.<code>`).
 // A code with no translation (e.g. an exception message) is shown as-is.
 function providerText(prefix, code, params) {
@@ -153,6 +164,7 @@ function render(state) {
   last = state;
   applyStrings(state);
   const cfg = state.config || {};
+  applySkin(cfg.skin);
   const enabled = cfg.enabled || {};
   const pin = $('#btn-pin');
   pin.classList.toggle('on', !!state.pinned);
@@ -222,6 +234,7 @@ function openSettings(providerId) {
     pinned: !!last.pinned,
     openAtLogin: !!cfg.openAtLogin,
     notify: cfg.notify !== false,
+    skin: cfg.skin === 'paper' ? 'paper' : 'classic',
     enabled: { ...(cfg.enabled || {}) },
     providerIntervals: { ...(cfg.providerIntervals || {}) },
     hiddenWindows: JSON.parse(JSON.stringify(cfg.hiddenWindows || {})),
@@ -274,6 +287,42 @@ function mainScreen() {
   const notify = check(t('s.notifications'), draft.notify);
   notify.input.onchange = () => (draft.notify = notify.input.checked);
   form.append(pin.wrap, login.wrap, notify.wrap, el('div', 'hint', t('s.notifications_hint')));
+
+  form.append(el('h3', null, t('s.appearance')));
+  form.append(el('div', 'hint', t('s.skin_hint')));
+  const skinGallery = el('div', 'skin-gallery');
+  const skinButtons = [];
+  const selectSkin = (id) => {
+    draft.skin = id;
+    applySkin(id);
+    for (const [button, skinId] of skinButtons) {
+      const on = skinId === id;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', String(on));
+    }
+    fitWindow();
+  };
+  for (const [id, label, preview] of [
+    ['classic', t('skin.classic'), 'skins/classic-preview.svg'],
+    ['paper', t('skin.paper'), 'skins/paper-preview.svg'],
+  ]) {
+    const button = el('button', 'skin-option');
+    button.type = 'button';
+    button.dataset.skin = id;
+    button.setAttribute('aria-pressed', String(draft.skin === id));
+    if (draft.skin === id) button.classList.add('on');
+    const image = document.createElement('img');
+    image.src = preview;
+    image.width = 160;
+    image.height = 104;
+    image.alt = '';
+    image.loading = 'lazy';
+    button.append(image, el('span', 'skin-name', label));
+    button.onclick = () => selectSkin(id);
+    skinGallery.append(button);
+    skinButtons.push([button, id]);
+  }
+  form.append(skinGallery);
 
   form.append(el('h3', null, t('s.services')));
   for (const meta of last.providerMeta || []) {
@@ -1157,6 +1206,7 @@ async function saveSettings(button) {
     intervalMin: draft.intervalMin,
     pinned: draft.pinned,
     openAtLogin: draft.openAtLogin,
+    skin: draft.skin,
     enabled: { ...draft.enabled },
     providerIntervals: { ...draft.providerIntervals },
     notify: !!draft.notify,
@@ -1179,6 +1229,7 @@ async function saveSettings(button) {
   }
   button.disabled = true;
   button.textContent = t('s.saving');
+  if (last && last.config) last.config.skin = patch.skin;
   closeSettings();
   await window.qw.setConfig(patch);
 }
@@ -1190,6 +1241,7 @@ function closeSettings() {
   settings.hidden = true;
   list.hidden = false;
   $('#btn-config').classList.remove('on');
+  applySkin((last && last.config && last.config.skin) || 'classic');
   if (last) render(last);
 }
 

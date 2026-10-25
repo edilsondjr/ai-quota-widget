@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="104" viewBox="0 0 160 104" role="img" aria-label="Paper skin preview">
+  <rect width="160" height="104" rx="3" fill="#f3efe6" stroke="#d5cec0"/>
+  <text x="12" y="19" fill="#17212a" font-family="Georgia, 'Times New Roman', serif" font-size="9" font-weight="600">AI quotas</text>
+  <circle cx="137" cy="15" r="2.5" fill="#2f5f8a"/>
+  <circle cx="148" cy="15" r="2.5" fill="#5f6b74"/>
+  <text x="12" y="40" fill="#17212a" font-family="Georgia, 'Times New Roman', serif" font-size="6.5" font-weight="600">Claude</text>
+  <text x="148" y="40" fill="#17212a" font-family="Segoe UI, Arial, sans-serif" font-size="6" text-anchor="end">32%</text>
+  <rect x="12" y="46" width="136" height="4" fill="#d8d2c5"/>
+  <rect x="12" y="46" width="44" height="4" fill="#2e8b62"/>
+  <text x="12" y="63" fill="#5f6b74" font-family="Segoe UI, Arial, sans-serif" font-size="5">resets in 5 min</text>
+  <text x="12" y="81" fill="#17212a" font-family="Georgia, 'Times New Roman', serif" font-size="6.5" font-weight="600">ChatGPT</text>
+  <text x="148" y="81" fill="#17212a" font-family="Segoe UI, Arial, sans-serif" font-size="6" text-anchor="end">28%</text>
+  <rect x="12" y="87" width="136" height="4" fill="#d8d2c5"/>
+  <rect x="12" y="87" width="38" height="4" fill="#2e8b62"/>
+</svg>

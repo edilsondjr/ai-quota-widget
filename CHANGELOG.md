@@ -2,6 +2,18 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.11.0
+
+### Added
+
+- Appearance section with built-in **Classic** and **Paper** skins. Paper uses a light paper background, serif headings and square rules.
+- Skin gallery with previews, live preview, Cancel revert and persistence in `config.json`.
+- A **Skin** submenu in the tray for quick switching.
+
+### Changed
+
+- Classic remains the default skin.
+
 ## 0.10.2
 
 ### Fixed

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="104" viewBox="0 0 160 104" role="img" aria-label="Classic skin preview">
+  <rect width="160" height="104" rx="8" fill="#1c1c20"/>
+  <text x="12" y="19" fill="#f1f1f3" font-family="Segoe UI, Arial, sans-serif" font-size="8" font-weight="600">AI quotas</text>
+  <circle cx="137" cy="15" r="2.5" fill="#7aa2ff"/>
+  <circle cx="148" cy="15" r="2.5" fill="#9a9aa5"/>
+  <text x="12" y="40" fill="#f1f1f3" font-family="Segoe UI, Arial, sans-serif" font-size="6" font-weight="600">Claude</text>
+  <text x="148" y="40" fill="#f1f1f3" font-family="Segoe UI, Arial, sans-serif" font-size="6" text-anchor="end">32%</text>
+  <rect x="12" y="46" width="136" height="5" rx="2.5" fill="#3a3a42"/>
+  <rect x="12" y="46" width="44" height="5" rx="2.5" fill="#4cc38a"/>
+  <text x="12" y="63" fill="#9a9aa5" font-family="Segoe UI, Arial, sans-serif" font-size="5">resets in 5 min</text>
+  <text x="12" y="81" fill="#f1f1f3" font-family="Segoe UI, Arial, sans-serif" font-size="6" font-weight="600">ChatGPT</text>
+  <text x="148" y="81" fill="#f1f1f3" font-family="Segoe UI, Arial, sans-serif" font-size="6" text-anchor="end">28%</text>
+  <rect x="12" y="87" width="136" height="5" rx="2.5" fill="#3a3a42"/>
+  <rect x="12" y="87" width="38" height="5" rx="2.5" fill="#4cc38a"/>
+</svg>

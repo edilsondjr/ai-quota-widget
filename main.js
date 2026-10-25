@@ -58,6 +58,7 @@ const LEGACY_WINDOW_KEYS = {
 const WIDTH = 336;
 const CONFIG_VERSION = 2;
 const APP_ID = 'com.beamglyph.quotawidget';
+const SKINS = ['classic', 'paper'];
 app.setAppUserModelId(APP_ID);
 const DEFAULTS = {
   configVersion: CONFIG_VERSION,
@@ -88,6 +89,7 @@ const DEFAULTS = {
   hiddenWindows: {},
   providerIntervals: {},
   notify: true,
+  skin: 'classic',
   ollamaBillingDay: null,
   ollamaMonthlyCredits: null,
   claudeShowUnknown: false,
@@ -250,6 +252,7 @@ function loadCfg() {
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
   cfg.providerIntervals = cfg.providerIntervals && typeof cfg.providerIntervals === 'object' && !Array.isArray(cfg.providerIntervals) ? cfg.providerIntervals : {};
   cfg.notify = cfg.notify !== false;
+  if (!SKINS.includes(cfg.skin)) cfg.skin = 'classic';
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
   for (const [id, legacy] of Object.entries(LEGACY_WINDOW_KEYS)) {
     if (Array.isArray(cfg.hiddenWindows[id])) cfg.hiddenWindows[id] = cfg.hiddenWindows[id].map((k) => legacy[k] || k);
@@ -271,6 +274,7 @@ function publicConfig() {
     customProviders: cfg.customProviders,
     providerIntervals: cfg.providerIntervals,
     notify: cfg.notify !== false,
+    skin: cfg.skin,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
   };
 }
@@ -449,6 +453,15 @@ function setPinned(v) {
   buildTrayMenu();
 }
 
+function setSkin(skin) {
+  if (!SKINS.includes(skin)) return;
+  cfg.skin = skin;
+  saveCfg();
+  state.config = publicConfig();
+  push();
+  buildTrayMenu();
+}
+
 function buildTrayMenu() {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
@@ -472,6 +485,13 @@ function buildTrayMenu() {
         push();
         buildTrayMenu();
       },
+    },
+    {
+      label: t('tray.skin'),
+      submenu: [
+        { label: t('skin.classic'), type: 'radio', checked: cfg.skin === 'classic', click: () => setSkin('classic') },
+        { label: t('skin.paper'), type: 'radio', checked: cfg.skin === 'paper', click: () => setSkin('paper') },
+      ],
     },
     { label: t('tray.open_folder'), click: () => shell.openPath(app.getPath('userData')) },
     { type: 'separator' },
@@ -774,6 +794,7 @@ ipcMain.handle('set-config', async (_e, patch) => {
     cfg.providerIntervals = clean;
   }
   if ('notify' in patch) cfg.notify = !!patch.notify;
+  if (typeof patch.skin === 'string' && SKINS.includes(patch.skin)) cfg.skin = patch.skin;
   // Provider-declared settings: only known keys are accepted and validated by type.
   for (const field of SETTING_FIELDS) {
     if (!(field.key in patch)) continue;

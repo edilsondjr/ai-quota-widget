@@ -79,6 +79,13 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
 
   // Add -> Cancel returns to the settings list.
   await page.click('#btn-config');
+  await page.getByText('Appearance', { exact: true }).waitFor();
+  await page.locator('.skin-option[data-skin="paper"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.skin === 'paper');
+  assert.equal(await page.locator('#skin-css').getAttribute('href'), 'skins/paper.css');
+  await page.locator('.skin-option[data-skin="classic"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.skin === 'classic');
+  assert.equal(await page.locator('#skin-css').getAttribute('href'), 'skins/classic.css');
   const add = page.getByRole('button', { name: 'Add custom provider' });
   await add.waitFor();
   await add.click();
