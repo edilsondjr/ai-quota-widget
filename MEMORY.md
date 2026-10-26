@@ -8,10 +8,13 @@ installer.
 
 ## Where we are
 
-- **Released app version:** `0.14.1` (security release).
-  - Tag `v0.14.1` points to commit `5f405c4`.
-  - Latest `main` commit is `c350b6b` (release-notes warning).
-- **0.15.0:** prepared for release; publication is pending the GitHub tag workflow.
+- **Released app version:** `0.15.0`.
+  - Tag `v0.15.0` points to commit `4f2b30a`.
+  - Release: `https://github.com/edilsondjr/ai-quota-widget/releases/tag/v0.15.0`.
+  - GitHub release installer SHA256: `f6ca0ad2ca4877652b5e1c732b35dd1b839bccaaa178556348009a97aa044a19`.
+  - The release workflow and the Node 22/24 plus Windows E2E CI jobs passed;
+    the release includes the installer, checksum file and SmartScreen warning.
+    The winget job was skipped as configured.
 - **Tests:** 114/114 unit tests and 1/1 Electron E2E passing. The E2E includes
   the empty state, single-window check, density, Esc shortcut, configured/available
   grouping, activation after adding credentials, drag-and-drop persistence, and
@@ -114,34 +117,13 @@ Run this before bumping or tagging:
 
 ## Next steps
 
-### 1. Finish QA and release 0.15.0
+### 1. Release follow-up
 
-1. Review the working-tree diff.
-2. Move `CHANGELOG.md` from `Unreleased` to `0.15.0`.
-3. Bump the app:
-   ```powershell
-   npm version 0.15.0 --no-git-tag-version
-   ```
-4. Re-run:
-   ```powershell
-   npm test
-   npm run test:e2e
-   npm run dist
-   ```
-5. Commit and push:
-   ```powershell
-   git add -A
-   git commit -F -   # use the repo commit template with co-author trailer
-   git push origin main
-   git tag -a v0.15.0 -m "Quota Widget 0.15.0"
-   git push origin v0.15.0
-   ```
-6. Watch the **Release installer** workflow. Confirm:
-   - installer and `SHA256SUMS.txt` assets;
-   - tests/E2E/build passed;
-   - release body contains the unsigned/SmartScreen warning;
-   - winget job is skipped unless `WINGET_PUBLISH=true`.
-7. Do not upload the local 0.14.1 build to the 0.14.1 release.
+- 0.15.0 is published and the GitHub workflow passed.
+- The packaged executable passed the isolated E2E. Installing the NSIS build
+  locally was not attempted because an existing user installation was present.
+- Update the landing page if the new ordering, search, snooze, thresholds or
+  configured-service grouping should be mentioned there.
 
 ### 2. Remaining UX backlog
 
