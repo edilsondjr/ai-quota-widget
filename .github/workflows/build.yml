@@ -43,6 +43,23 @@ jobs:
             dist/*.exe
             dist/SHA256SUMS.txt
           generate_release_notes: true
+      - name: Add unsigned installer warning to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $body = gh release view $env:GITHUB_REF_NAME --json body --jq .body
+          $warning = @'
+
+          ## Windows SmartScreen and publisher
+
+          This release is **not code-signed**. Windows SmartScreen may show **"Windows protected your PC"** with **"Unknown publisher"**. Click **More info → Run anyway**, or build from source. Verify the installer against `SHA256SUMS.txt` before running it.
+          '@
+          if ($body -notmatch 'Windows SmartScreen') {
+            Set-Content -Path release-body.md -Value ($body + $warning) -Encoding utf8
+            gh release edit $env:GITHUB_REF_NAME --notes-file release-body.md
+          }
 
   # Opens a pull request on microsoft/winget-pkgs for the new version.
   # Off by default. It only works after the first version of the package has been
