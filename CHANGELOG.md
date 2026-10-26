@@ -2,6 +2,25 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.15.0 - 2026-10-26
+
+### Added
+
+- First-run empty state with a direct provider-setup action.
+- Comfortable and Compact density modes.
+- Service order setting (default, custom or most urgent first), favorites, and drag-and-drop reordering per provider.
+- Search in the service list and a Settings shortcut on each provider card.
+- Per-provider notification thresholds, plus snooze from Settings and the tray.
+- Keyboard shortcuts for refresh, Settings, pin and closing Settings.
+- Provider errors now offer a direct shortcut to that provider's Settings.
+
+### Changed
+
+- Settings groups configured services above available integrations; only configured, enabled services appear in the widget.
+- Adding credentials activates the service; browser sign-in is available in Settings, and disabled browser services retain their setup status.
+- Icon buttons have accessible labels and keyboard shortcuts, and form controls have a visible focus ring.
+- Cards honor reduced-motion and high-contrast preferences.
+
 ## 0.14.1
 
 ### Security

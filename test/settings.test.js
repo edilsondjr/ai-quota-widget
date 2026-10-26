@@ -42,6 +42,13 @@ test('meta hides secrets and keeps non-secret values', () => {
   assert.equal(list.find((m) => m.id === 'copilot').values.githubUsername, null);
 });
 
+test('meta remembers browser setup independently of whether the provider is enabled', () => {
+  const list = meta(PROVIDERS, { connectedProviders: ['claude'], enabled: { claude: false } });
+  assert.equal(list.find((provider) => provider.id === 'claude').configured, true);
+  assert.equal(list.find((provider) => provider.id === 'chatgpt').configured, false);
+  assert.equal(list.find((provider) => provider.id === 'openrouter').configured, false);
+});
+
 test('coerce validates by type and range', () => {
   const secret = { key: 'k', type: 'secret' };
   assert.deepEqual(coerce(secret, '  abc  '), { ok: true, value: 'abc' });

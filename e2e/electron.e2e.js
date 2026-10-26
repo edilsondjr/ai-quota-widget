@@ -57,16 +57,20 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   // VS Code / Command Code may export this; Electron must run as Electron, not as Node.
   delete env.ELECTRON_RUN_AS_NODE;
 
+  const packagedExecutable = process.env.QUOTAWIDGET_E2E_EXE;
   app = await electron.launch({
-    executablePath: require('electron'),
-    args: ['.'],
+    executablePath: packagedExecutable || require('electron'),
+    args: packagedExecutable ? [] : ['.'],
     cwd: repo,
     env,
     timeout: 30000,
   });
 
   const page = await app.firstWindow();
+  assert.equal((await app.windows()).length, 1);
   await page.waitForSelector('#btn-config');
+  await page.getByText('No providers yet', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Open settings', exact: true }).waitFor();
 
   // Always-on-top reflects its state.
   const pin = page.locator('#btn-pin');
@@ -78,6 +82,23 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.waitForFunction(() => document.querySelector('#btn-pin').getAttribute('aria-pressed') === 'true');
 
   // Add -> Cancel returns to the settings list.
+  await page.click('#btn-config');
+  await page.getByText('Appearance', { exact: true }).waitFor();
+  await page.locator('#density').selectOption('compact');
+  await page.waitForFunction(() => document.documentElement.dataset.density === 'compact');
+  await page.locator('#density').selectOption('comfortable');
+  await page.waitForFunction(() => document.documentElement.dataset.density === 'comfortable');
+  await page.locator('#sort').selectOption('custom');
+  assert.equal(await page.locator('.service-group[data-configured="true"]').isVisible(), false);
+  assert.ok(await page.locator('.service-group[data-configured="false"] .svc').count() > 0);
+  assert.equal(await page.locator('.service-group[data-configured="false"] input:not(:disabled)').count(), 0);
+  assert.equal(await page.locator('.svc-drag-handle:visible').count(), 0);
+  await page.locator('.svc-main', { hasText: 'Claude' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
+  await page.locator('button.back').click();
+  await page.locator('#sort').selectOption('default');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('#settings').hidden === true);
   await page.click('#btn-config');
   await page.getByText('Appearance', { exact: true }).waitFor();
   await page.locator('.skin-option[data-skin="paper"]').click();
@@ -158,6 +179,48 @@ test('settings: pin, custom provider test/cancel/save/delete', { timeout: 90000 
   await page.getByRole('button', { name: 'Add custom provider' }).waitFor();
   await page.click('#btn-config');
   await page.locator('#list').getByText('Local test').waitFor();
+  await page.locator('#list').getByText('Balance: 13').waitFor();
+
+  // Unconfigured services stay in Settings; configured services can be reordered and hidden.
+  assert.equal(await page.locator('#list .prov').count(), 1);
+  const secondId = await page.evaluate(async () => {
+    const state = await window.qw.getState();
+    const result = await window.qw.saveCustomProvider({ spec: { ...state.config.customProviders[0], name: 'Second service', auth: 'bearer' } });
+    return result.id;
+  });
+  await page.click('#btn-config');
+  await page.locator('.service-group[data-configured="false"] .svc-main', { hasText: 'Second service' }).waitFor();
+  await page.click('#btn-config');
+  await page.evaluate(async (id) => {
+    const state = await window.qw.getState();
+    const spec = state.config.customProviders.find((provider) => provider.id === id);
+    await window.qw.saveCustomProvider({ id, spec, apiKey: 'local-test-key' });
+    const updated = await window.qw.getState();
+    if (!updated.config.enabled[id]) throw new Error('Newly configured service was not enabled');
+  }, secondId);
+  await page.click('#btn-config');
+  const configuredGroup = page.locator('.service-group[data-configured="true"]');
+  assert.deepEqual(await configuredGroup.locator('.svc-name').allTextContents(), ['Local test', 'Second service']);
+  await page.locator('#sort').selectOption('custom');
+  await configuredGroup.locator('.svc-drag-handle').nth(1).dragTo(configuredGroup.locator('.svc').first(), { targetPosition: { x: 12, y: 2 } });
+  await page.waitForFunction(() => document.querySelector('.service-group[data-configured="true"] .svc-name').textContent === 'Second service');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.click('#btn-config');
+  assert.deepEqual(await configuredGroup.locator('.svc-name').allTextContents(), ['Second service', 'Local test']);
+  await page.click('#btn-config');
+  await page.evaluate(async () => {
+    const state = await window.qw.getState();
+    const second = state.providerMeta.find((meta) => meta.name === 'Second service');
+    await window.qw.deleteCustomProvider(second.id);
+  });
+  await page.click('#btn-config');
+  await configuredGroup.locator('input').uncheck();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByText('No providers yet', { exact: true }).waitFor();
+  await page.click('#btn-config');
+  await configuredGroup.locator('.svc-name').getByText('Local test', { exact: true }).waitFor();
+  await configuredGroup.locator('input').check();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.locator('#list').getByText('Balance: 13').waitFor();
 
   // Dock layout: top bar with consumption, settings panel, then back to the card.

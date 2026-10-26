@@ -15,10 +15,12 @@ Currently supported: **Claude**, **ChatGPT (Codex)**, **Command Code**, **Ollama
 ## Features
 
 - One card per service, with colored bars (green, amber, red) and "resets in…" countdowns.
-- Settings screen: one row per service with an on/off switch and a status, opening a detail view for that service's usage windows, key fields, per-service refresh interval and diagnostics; plus refresh interval, language, always-on-top, start with Windows, notifications, skins (Classic/Paper), layout (floating card or dock) and custom providers (guided form or JSON spec, templates and import/export).
+- Settings screen: services grouped as Configured and Available, with an on/off switch for configured services, status, search, favorites and service order (default, custom or most urgent first, with drag-and-drop reordering), opening a detail view for usage windows, sign-in, key fields, per-service refresh interval and diagnostics; also refresh interval, language, always-on-top, start with Windows, notifications with per-provider thresholds and snooze, skins (Classic/Paper), layout (floating card or dock) and custom providers (guided form or JSON spec, templates and import/export). Only configured, enabled services appear in the widget.
 - Each service can override the global refresh interval. Failed updates back off exponentially (up to 60 minutes), while the last reading stays visible marked stale.
-- Optional notifications at 90% and on renewal, with a mute switch in Settings and the tray.
+- Optional notifications at a configurable threshold (default 90%) and on renewal, with snooze and mute in Settings and the tray.
 - System tray icon; the window remembers its position.
+- A first-run empty state that points to provider setup, plus **Comfortable/Compact** density.
+- Keyboard shortcuts: **Ctrl+R** refresh, **Ctrl+,** Settings, **Ctrl+Shift+P** pin, **Esc** close Settings.
 - Manual **Check for updates** in Settings; it opens the latest GitHub release page and never downloads or installs updates automatically.
 - Everything runs locally. All app data lives under `~/.quotawidget/`: `config.json`, the encrypted-custom-provider blob and the per-provider sign-in profiles in `profiles/`. Claude and ChatGPT sign-ins live in isolated Electron sessions there. API keys and custom-provider specs are stored locally and encrypted with Windows (Electron `safeStorage`, tied to your Windows user); `~/.quotawidget/config.json` only contains the encrypted blobs, never the values in plain text. Nothing is sent anywhere except to the services themselves and, when you explicitly check for updates, GitHub's public releases API.
 

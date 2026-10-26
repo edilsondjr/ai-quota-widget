@@ -20,7 +20,7 @@ function meta(providers, cfg) {
       if (f.type === 'secret') secrets[f.key] = !!cfg[f.key];
       else values[f.key] = cfg[f.key] == null ? (f.type === 'boolean' ? false : null) : cfg[f.key];
     }
-    return { id: p.id, name: p.name, canLogin: !!p.loginUrl, custom: !!p.custom, fields: p.settings || [], values, secrets };
+    return { id: p.id, name: p.name, canLogin: !!p.loginUrl, configured: !!p.loginUrl && (cfg.connectedProviders || []).includes(p.id), custom: !!p.custom, fields: p.settings || [], values, secrets };
   });
 }
 

@@ -12,11 +12,11 @@
     <header id="bar">
       <span class="title" data-i18n="app.title"></span>
       <span class="spacer"></span>
-      <button id="btn-refresh" data-i18n-title="btn.refresh">↻</button>
-      <button id="btn-pin" data-i18n-title="btn.pin" aria-pressed="false">
+      <button id="btn-refresh" data-i18n-title="btn.refresh" aria-keyshortcuts="Control+R">↻</button>
+      <button id="btn-pin" data-i18n-title="btn.pin" aria-pressed="false" aria-keyshortcuts="Control+Shift+P">
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M16 9V4h1V2H7v2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>
       </button>
-      <button id="btn-config" data-i18n-title="btn.config">⚙</button>
+      <button id="btn-config" data-i18n-title="btn.config" aria-keyshortcuts="Control+,">⚙</button>
       <button id="btn-hide" data-i18n-title="btn.hide">✕</button>
     </header>
     <section id="list"></section>
@@ -25,6 +25,7 @@
   </main>
   <script src="i18n.js"></script>
   <script src="custom-spec.js"></script>
+  <script src="provider-state.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

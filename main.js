@@ -9,6 +9,7 @@ const { mergeReading } = require('./providers/readings');
 const { translator } = require('./renderer/i18n');
 const { prepareDataDir, sanitizeLegacyConfig, writeJsonAtomic } = require('./app-data');
 const { checkForUpdates, RELEASES_URL } = require('./update');
+const { isConfigured } = require('./renderer/provider-state');
 
 // The provider list = built-ins + user-defined custom providers from config.
 // SETTING_FIELDS/SECRET_KEYS are rebuilt whenever the custom list changes.
@@ -73,6 +74,7 @@ const DEFAULTS = {
   ollamaApiKey: '',
   commandcodeApiKey: '',
   customProviders: [],
+  connectedProviders: [],
   bounds: null,
   enabled: {
     claude: true,
@@ -94,7 +96,13 @@ const DEFAULTS = {
   hiddenWindows: {},
   providerIntervals: {},
   notify: true,
+  notificationThresholds: {},
+  mutedUntil: 0,
+  favorites: [],
+  providerOrder: [],
+  sort: 'default',
   skin: 'classic',
+  density: 'comfortable',
   layout: 'card',
   dock: 'top',
   ollamaBillingDay: null,
@@ -152,7 +160,8 @@ function notify(title, body) {
 }
 
 function maybeNotify(id, name, prev, next) {
-  if (!cfg.notify || !next || !next.ok || !Notification.isSupported()) return;
+  if (!cfg.notify || (cfg.mutedUntil && cfg.mutedUntil > Date.now()) || !next || !next.ok || !Notification.isSupported()) return;
+  const threshold = Number.isFinite(+cfg.notificationThresholds?.[id]) ? +cfg.notificationThresholds[id] : NOTIFY_AT;
   const oldByKey = new Map(((prev && prev.ok ? prev.windows : []) || []).map((w) => [w.key, w]));
   const now = Date.now();
   for (const w of next.windows || []) {
@@ -165,10 +174,10 @@ function maybeNotify(id, name, prev, next) {
       notify(t('notify.renew.title', { name }), t('notify.renew.body', { window: label }));
       notifiedWindows.delete(mapKey);
     }
-    if ((w.percent || 0) >= NOTIFY_AT && (!last || last.resetAt !== w.resetsAt)) {
+    if ((w.percent || 0) >= threshold && (!last || last.resetAt !== w.resetsAt)) {
       notify(t('notify.high.title', { name }), t('notify.high.body', { window: label, percent: Math.round(w.percent) }));
       notifiedWindows.set(mapKey, { resetAt: w.resetsAt, percent: w.percent });
-    } else if ((w.percent || 0) < NOTIFY_AT && last) {
+    } else if ((w.percent || 0) < threshold && last) {
       notifiedWindows.delete(mapKey);
     }
   }
@@ -261,7 +270,25 @@ function loadCfg() {
   cfg.enabled = { ...DEFAULTS.enabled, ...(cfg.enabled || {}) };
   cfg.providerIntervals = cfg.providerIntervals && typeof cfg.providerIntervals === 'object' && !Array.isArray(cfg.providerIntervals) ? cfg.providerIntervals : {};
   cfg.notify = cfg.notify !== false;
+  const notificationThresholds = {};
+  if (cfg.notificationThresholds && typeof cfg.notificationThresholds === 'object') {
+    for (const [id, value] of Object.entries(cfg.notificationThresholds)) {
+      const n = Number(value);
+      if (list.some((p) => p.id === id) && Number.isFinite(n) && n >= 1 && n <= 100) notificationThresholds[id] = n;
+    }
+  }
+  cfg.notificationThresholds = notificationThresholds;
+  cfg.connectedProviders = Array.isArray(cfg.connectedProviders)
+    ? [...new Set(cfg.connectedProviders.filter((id) => list.some((p) => p.id === id && p.loginUrl)))]
+    : [];
+  cfg.mutedUntil = Number.isFinite(Number(cfg.mutedUntil)) ? Number(cfg.mutedUntil) : 0;
+  cfg.favorites = Array.isArray(cfg.favorites) ? [...new Set(cfg.favorites.filter((id) => typeof id === 'string'))] : [];
+  cfg.providerOrder = Array.isArray(cfg.providerOrder)
+    ? [...new Set(cfg.providerOrder.filter((id) => typeof id === 'string'))]
+    : [];
+  cfg.sort = cfg.sort === 'urgency' || cfg.sort === 'custom' ? cfg.sort : 'default';
   if (!SKINS.includes(cfg.skin)) cfg.skin = 'classic';
+  cfg.density = cfg.density === 'compact' ? 'compact' : 'comfortable';
   cfg.layout = cfg.layout === 'dock' ? 'dock' : 'card';
   cfg.dock = ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top';
   cfg.hiddenWindows = cfg.hiddenWindows && typeof cfg.hiddenWindows === 'object' ? cfg.hiddenWindows : {};
@@ -285,7 +312,13 @@ function publicConfig() {
     customProviders: cfg.customProviders,
     providerIntervals: cfg.providerIntervals,
     notify: cfg.notify !== false,
+    notificationThresholds: cfg.notificationThresholds,
+    mutedUntil: cfg.mutedUntil,
+    favorites: cfg.favorites,
+    providerOrder: cfg.providerOrder,
+    sort: cfg.sort,
     skin: cfg.skin,
+    density: cfg.density === 'compact' ? 'compact' : 'comfortable',
     layout: cfg.layout,
     dock: cfg.dock,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
@@ -324,7 +357,9 @@ function push() {
 }
 
 async function refresh(ids, manual = false) {
-  const all = getProviders().map((p) => p.id).filter((id) => cfg.enabled[id] !== false);
+  const all = settingsMeta(getProviders(), cfg)
+    .filter((meta) => cfg.enabled[meta.id] !== false && (meta.canLogin || isConfigured(meta)))
+    .map((meta) => meta.id);
   const requested = ids && ids.length ? ids.filter((id) => all.includes(id)) : all;
   const now = Date.now();
   const list = manual ? requested : requested.filter((id) => {
@@ -352,6 +387,11 @@ async function refresh(ids, manual = false) {
       merged.consecutiveFailures = failures;
       merged.nextRetryAt = next.ok ? null : Date.now() + backoffMs(id, failures);
       state.providers[id] = merged;
+      if (next.ok && next.canLogin && !cfg.connectedProviders.includes(id)) {
+        cfg.connectedProviders = [...cfg.connectedProviders, id];
+        state.providerMeta = settingsMeta(getProviders(), cfg);
+        saveCfg();
+      }
       maybeNotify(id, next.name || id, prev, next);
       push();
     }
@@ -529,6 +569,21 @@ function setSkin(skin) {
   buildTrayMenu();
 }
 
+function setMutedUntil(until) {
+  cfg.mutedUntil = Math.max(0, Number(until) || 0);
+  saveCfg();
+  state.config = publicConfig();
+  push();
+  buildTrayMenu();
+}
+
+function tomorrowMorning() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(8, 0, 0, 0);
+  return date.getTime();
+}
+
 function buildTrayMenu() {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
@@ -552,6 +607,15 @@ function buildTrayMenu() {
         push();
         buildTrayMenu();
       },
+    },
+    {
+      label: t('tray.snooze'),
+      submenu: [
+        { label: t('s.snooze_off'), click: () => setMutedUntil(0) },
+        { label: t('s.snooze_1h'), click: () => setMutedUntil(Date.now() + 60 * 60 * 1000) },
+        { label: t('s.snooze_8h'), click: () => setMutedUntil(Date.now() + 8 * 60 * 60 * 1000) },
+        { label: t('s.snooze_tomorrow'), click: () => setMutedUntil(tomorrowMorning()) },
+      ],
     },
     {
       label: t('tray.skin'),
@@ -588,9 +652,16 @@ function openLogin(id) {
   });
   hardenWebContents(w.webContents, { allowHttpsPopups: true, partition });
   w.loadURL(p.loginUrl);
-  w.on('closed', () => {
-    if (id === 'claude') resetClaudeOrg();
-    refresh([id], true);
+  return new Promise((resolve) => {
+    w.once('closed', async () => {
+      if (id === 'claude') resetClaudeOrg();
+      cfg.enabled[id] = true;
+      await refresh([id], true);
+      state.config = publicConfig();
+      saveCfg();
+      push();
+      resolve();
+    });
   });
 }
 
@@ -605,6 +676,7 @@ function saveCustomProvider(input) {
   if (input.id && index < 0) return { ok: false, error: 'Custom provider not found' };
 
   const existing = index >= 0 ? specs[index] : null;
+  const wasConfigured = !!existing && (existing.auth === 'none' || !!cfg[existing.keyName]);
   const id = existing ? existing.id : `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
   const keyName = existing && existing.keyName ? existing.keyName : `${id}ApiKey`;
   const spec = { ...normalized.spec, id, keyName };
@@ -619,7 +691,8 @@ function saveCustomProvider(input) {
     if (input.clearKey) delete cfg[keyName];
   }
 
-  cfg.enabled[id] = index >= 0 ? cfg.enabled[id] !== false : true;
+  const configured = spec.auth === 'none' || !!cfg[keyName];
+  cfg.enabled[id] = configured && (!wasConfigured || cfg.enabled[id] !== false);
 
   const list = rebuildRegistry(specs);
   state.config = publicConfig();
@@ -796,6 +869,10 @@ ipcMain.handle('refresh', (_e, id) => refresh(id ? [id] : undefined, true));
 ipcMain.handle('login', (_e, id) => openLogin(id));
 ipcMain.handle('logout', async (_e, id) => {
   await clearSession(id);
+  cfg.connectedProviders = cfg.connectedProviders.filter((providerId) => providerId !== id);
+  delete state.providers[id];
+  state.providerMeta = settingsMeta(getProviders(), cfg);
+  saveCfg();
   if (id === 'claude') resetClaudeOrg();
   await refresh([id], true);
 });
@@ -841,6 +918,8 @@ ipcMain.handle('delete-custom-provider', async (_e, id) => {
 ipcMain.handle('toggle-pin', () => setPinned(!state.pinned));
 ipcMain.handle('set-config', async (_e, patch) => {
   if (!patch || typeof patch !== 'object') return;
+  const previouslyConfigured = new Set(settingsMeta(getProviders(), cfg)
+    .filter((meta) => isConfigured(meta, state.providers[meta.id])).map((meta) => meta.id));
   if (typeof patch.language === 'string' && LOCALES[patch.language]) {
     cfg.language = patch.language;
     applyLanguage();
@@ -879,7 +958,27 @@ ipcMain.handle('set-config', async (_e, patch) => {
     cfg.providerIntervals = clean;
   }
   if ('notify' in patch) cfg.notify = !!patch.notify;
+  if (patch.sort === 'urgency' || patch.sort === 'custom' || patch.sort === 'default') cfg.sort = patch.sort;
+  if (Array.isArray(patch.favorites)) {
+    cfg.favorites = [...new Set(patch.favorites.filter((id) => typeof id === 'string'))].slice(0, 50);
+  }
+  if (Array.isArray(patch.providerOrder)) {
+    cfg.providerOrder = [...new Set(patch.providerOrder.filter((id) => typeof id === 'string'))].slice(0, 100);
+  }
+  if (patch.notificationThresholds && typeof patch.notificationThresholds === 'object' && !Array.isArray(patch.notificationThresholds)) {
+    const thresholds = {};
+    for (const p of getProviders()) {
+      if (!(p.id in patch.notificationThresholds)) continue;
+      const n = Number(patch.notificationThresholds[p.id]);
+      if (Number.isFinite(n) && n >= 1 && n <= 100) thresholds[p.id] = n;
+    }
+    cfg.notificationThresholds = thresholds;
+  }
+  if ('mutedUntil' in patch && Number.isFinite(Number(patch.mutedUntil))) {
+    cfg.mutedUntil = Math.max(0, Number(patch.mutedUntil));
+  }
   if (typeof patch.skin === 'string' && SKINS.includes(patch.skin)) cfg.skin = patch.skin;
+  if (patch.density === 'compact' || patch.density === 'comfortable') cfg.density = patch.density;
   if (patch.layout === 'card' || patch.layout === 'dock') cfg.layout = patch.layout;
   if (['top', 'left', 'right'].includes(patch.dock)) cfg.dock = patch.dock;
   // Provider-declared settings: only known keys are accepted and validated by type.
@@ -887,6 +986,12 @@ ipcMain.handle('set-config', async (_e, patch) => {
     if (!(field.key in patch)) continue;
     const r = coerce(field, patch[field.key]);
     if (r.ok) cfg[field.key] = r.value;
+  }
+  for (const meta of settingsMeta(getProviders(), cfg)) {
+    if (meta.canLogin) continue;
+    const configured = isConfigured(meta);
+    if (!configured) cfg.enabled[meta.id] = false;
+    else if (!previouslyConfigured.has(meta.id) && (!patch.enabled || patch.enabled[meta.id] !== false)) cfg.enabled[meta.id] = true;
   }
   if ('openAtLogin' in patch) app.setLoginItemSettings({ openAtLogin: !!patch.openAtLogin });
   if ('pinned' in patch && !!patch.pinned !== state.pinned) setPinned(!!patch.pinned);

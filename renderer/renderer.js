@@ -8,6 +8,7 @@ let t = (k) => k;
 let lang = 'en-US';
 let draft = null;
 let view = 'main';
+let settingsQuery = '';
 
 // Strings come from the main process (locales/*.json) along with the state.
 function applyStrings(state) {
@@ -16,7 +17,11 @@ function applyStrings(state) {
   lang = state.lang || 'en-US';
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-i18n]').forEach((n) => (n.textContent = t(n.dataset.i18n)));
-  document.querySelectorAll('[data-i18n-title]').forEach((n) => (n.title = t(n.dataset.i18nTitle)));
+  document.querySelectorAll('[data-i18n-title]').forEach((n) => {
+    const value = t(n.dataset.i18nTitle);
+    n.title = value;
+    n.setAttribute('aria-label', value);
+  });
 }
 
 const SKINS = ['classic', 'paper'];
@@ -33,6 +38,10 @@ function applySkin(skin) {
 function applyLayout(cfg) {
   document.documentElement.dataset.layout = cfg.layout === 'dock' ? 'dock' : 'card';
   document.documentElement.dataset.dock = ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top';
+}
+
+function applyDensity(cfg) {
+  document.documentElement.dataset.density = cfg.density === 'compact' ? 'compact' : 'comfortable';
 }
 
 // Text for a code coming from a provider (`err.<code>` / `note.<code>`).
@@ -109,6 +118,12 @@ function card(id, p, cfg) {
   head.append(el('span', 'name', meta.name));
   if (p && p.plan) head.append(el('span', 'plan', String(p.plan)));
   head.append(el('span', 'spacer'));
+  const gear = el('button', 'link dim', '⚙');
+  gear.type = 'button';
+  gear.title = t('btn.config');
+  gear.setAttribute('aria-label', t('btn.config'));
+  gear.onclick = () => openSettings(id);
+  head.append(gear);
   if (p && p.ok && p.canLogin) {
     const out = el('button', 'link dim', t('card.logout'));
     out.title = t('card.logout.title');
@@ -155,6 +170,9 @@ function card(id, p, cfg) {
         l.onclick = () => window.qw.login(id);
         actions.append(l);
       }
+      const s = el('button', 'link dim', t('btn.config'));
+      s.onclick = () => openSettings(id);
+      actions.append(s);
     }
     box.append(actions);
   }
@@ -165,12 +183,36 @@ function fitWindow() {
   requestAnimationFrame(() => window.qw.resize(document.body.scrollHeight));
 }
 
+function providerUrgency(state, id) {
+  const reading = state.providers[id];
+  if (!reading) return -1;
+  if (!reading.ok) return 101;
+  return Math.max(0, ...(reading.windows || []).map((w) => Number(w.percent) || 0));
+}
+
+function orderedProviderIds(state, cfg, enabled) {
+  const ids = (state.providerMeta || [])
+    .filter((meta) => enabled[meta.id] !== false && window.providerState.isConfigured(meta, state.providers[meta.id]))
+    .map((meta) => meta.id);
+  if (cfg.sort === 'custom') {
+    const rank = new Map((cfg.providerOrder || []).map((id, index) => [id, index]));
+    const position = (id) => (rank.has(id) ? rank.get(id) : Number.MAX_SAFE_INTEGER);
+    ids.sort((a, b) => position(a) - position(b));
+    return ids;
+  }
+  const favorites = new Set(cfg.favorites || []);
+  if (cfg.sort === 'urgency') ids.sort((a, b) => providerUrgency(state, b) - providerUrgency(state, a));
+  ids.sort((a, b) => (favorites.has(b) ? 1 : 0) - (favorites.has(a) ? 1 : 0));
+  return ids;
+}
+
 function render(state) {
   last = state;
   applyStrings(state);
   const cfg = state.config || {};
   applySkin(cfg.skin);
   applyLayout(cfg);
+  applyDensity(cfg);
   const enabled = cfg.enabled || {};
   const pin = $('#btn-pin');
   pin.classList.toggle('on', !!state.pinned);
@@ -181,9 +223,22 @@ function render(state) {
     : t('foot.updating');
   foot.textContent = state.version ? `${when} · v${state.version}` : when;
   if (inSettings) return; // don't rebuild the form while the user is editing
-  const ids = (state.providerMeta || []).map((m) => m.id).filter((id) => enabled[id] !== false);
-  if (!ids.length) list.replaceChildren(el('div', 'err pad', t('list.none')));
-  else list.replaceChildren(...ids.map((id) => card(id, state.providers[id], cfg)));
+  const ids = orderedProviderIds(state, cfg, enabled);
+  if (!ids.length) {
+    const empty = el('div', 'empty');
+    empty.append(
+      el('div', 'empty-mark', '✦'),
+      el('h2', null, t('card.empty_title')),
+      el('p', null, t('card.empty_body'))
+    );
+    const setup = el('button', 'btn primary', t('card.empty_cta'));
+    setup.type = 'button';
+    setup.onclick = () => openSettings();
+    empty.append(setup, el('p', 'empty-hint', t('card.empty_hint')));
+    list.replaceChildren(empty);
+  } else {
+    list.replaceChildren(...ids.map((id) => card(id, state.providers[id], cfg)));
+  }
   fitWindow();
 }
 
@@ -220,12 +275,24 @@ function fieldText(meta, f, suffix) {
   return text === key ? null : text;
 }
 
+function isProviderConfigured(meta, editing = false) {
+  if (!editing || !draft) return window.providerState.isConfigured(meta, last.providers[meta.id]);
+  const secrets = { ...meta.secrets };
+  for (const field of meta.fields || []) {
+    if (field.type !== 'secret') continue;
+    if (draft.clear[field.key]) secrets[field.key] = false;
+    if ((draft.secrets[field.key] || '').trim()) secrets[field.key] = true;
+  }
+  return window.providerState.isConfigured({ ...meta, secrets }, last.providers[meta.id]);
+}
+
 function statusText(meta, p) {
   const secretSet = (meta.fields || []).some((f) => f.type === 'secret' && meta.secrets && meta.secrets[f.key]);
   if (p && p.ok) return meta.canLogin ? t('s.status.signed_in') : t('s.status.key_set');
   if (p && p.action === 'login') return t('s.status.signin_needed');
   if (p && p.action === 'key') return t('s.status.needs_key');
   if (secretSet) return t('s.status.key_set');
+  if (meta.custom && !(meta.fields || []).some((f) => f.type === 'secret')) return t('s.status.configured');
   return meta.canLogin ? t('s.status.signin_needed') : t('s.status.needs_key');
 }
 
@@ -234,6 +301,7 @@ function openSettings(providerId) {
   inSettings = true;
   window.qw.setWindowMode('settings');
   view = providerId || 'main';
+  settingsQuery = '';
   const cfg = last.config || {};
   draft = {
     language: cfg.language || last.lang,
@@ -241,7 +309,13 @@ function openSettings(providerId) {
     pinned: !!last.pinned,
     openAtLogin: !!cfg.openAtLogin,
     notify: cfg.notify !== false,
+    mutedUntil: cfg.mutedUntil || 0,
+    notificationThresholds: { ...(cfg.notificationThresholds || {}) },
+    favorites: [...(cfg.favorites || [])],
+    providerOrder: [...(cfg.providerOrder || [])],
+    sort: cfg.sort === 'urgency' || cfg.sort === 'custom' ? cfg.sort : 'default',
     skin: cfg.skin === 'paper' ? 'paper' : 'classic',
+    density: cfg.density === 'compact' ? 'compact' : 'comfortable',
     layout: cfg.layout === 'dock' ? 'dock' : 'card',
     dock: ['top', 'left', 'right'].includes(cfg.dock) ? cfg.dock : 'top',
     enabled: { ...(cfg.enabled || {}) },
@@ -258,6 +332,9 @@ function openSettings(providerId) {
 }
 
 function renderSettings() {
+  const providerIds = (last.providerMeta || []).map((m) => m.id);
+  const ordered = draft.providerOrder.filter((id) => providerIds.includes(id));
+  draft.providerOrder = [...ordered, ...providerIds.filter((id) => !ordered.includes(id))];
   let content;
   if (view === 'main') content = mainScreen();
   else if (view === 'custom-new' || view.startsWith('custom:')) content = customScreen(view);
@@ -297,6 +374,31 @@ function mainScreen() {
   notify.input.onchange = () => (draft.notify = notify.input.checked);
   form.append(pin.wrap, login.wrap, notify.wrap, el('div', 'hint', t('s.notifications_hint')));
 
+  const snooze = document.createElement('select');
+  for (const [value, label] of [
+    ['0', t('s.snooze_off')],
+    ['1h', t('s.snooze_1h')],
+    ['8h', t('s.snooze_8h')],
+    ['tomorrow', t('s.snooze_tomorrow')],
+  ]) {
+    const option = el('option', null, label);
+    option.value = value;
+    snooze.append(option);
+  }
+  snooze.onchange = () => {
+    const value = snooze.value;
+    if (value === '0') draft.mutedUntil = 0;
+    else if (value === '1h') draft.mutedUntil = Date.now() + 60 * 60 * 1000;
+    else if (value === '8h') draft.mutedUntil = Date.now() + 8 * 60 * 60 * 1000;
+    else {
+      const date = new Date();
+      date.setDate(date.getDate() + 1);
+      date.setHours(8, 0, 0, 0);
+      draft.mutedUntil = date.getTime();
+    }
+  };
+  form.append(field(t('s.snooze'), snooze));
+
   form.append(el('h3', null, t('s.appearance')));
   const layoutSel = document.createElement('select');
   layoutSel.id = 'layout';
@@ -322,6 +424,42 @@ function mainScreen() {
   };
   dockSel.onchange = () => (draft.dock = dockSel.value);
   form.append(field(t('s.layout'), layoutSel), dockField);
+
+  const densitySel = document.createElement('select');
+  densitySel.id = 'density';
+  for (const [value, label] of [['comfortable', t('s.density_comfortable')], ['compact', t('s.density_compact')]]) {
+    const option = el('option', null, label);
+    option.value = value;
+    option.selected = draft.density === value;
+    densitySel.append(option);
+  }
+  densitySel.onchange = () => {
+    draft.density = densitySel.value;
+    applyDensity({ density: densitySel.value });
+    fitWindow();
+  };
+  form.append(field(t('s.density'), densitySel));
+
+  const sortSel = document.createElement('select');
+  sortSel.id = 'sort';
+  for (const [value, label] of [
+    ['default', t('s.sort_default')],
+    ['custom', t('s.sort_custom')],
+    ['urgency', t('s.sort_urgency')],
+  ]) {
+    const option = el('option', null, label);
+    option.value = value;
+    option.selected = draft.sort === value;
+    sortSel.append(option);
+  }
+  sortSel.onchange = () => {
+    draft.sort = sortSel.value;
+    const y = settings.scrollTop;
+    renderSettings();
+    settings.scrollTop = y;
+  };
+  form.append(field(t('s.sort'), sortSel));
+
   form.append(el('div', 'hint', t('s.skin_hint')));
   const skinGallery = el('div', 'skin-gallery');
   const skinButtons = [];
@@ -358,19 +496,124 @@ function mainScreen() {
   form.append(skinGallery);
 
   form.append(el('h3', null, t('s.services')));
-  for (const meta of last.providerMeta || []) {
+  const search = textInput('search', settingsQuery, t('s.search_providers'));
+  search.className = 'svc-search';
+  search.setAttribute('aria-label', t('s.search_providers'));
+  search.oninput = () => {
+    settingsQuery = search.value;
+    filterRows();
+  };
+  form.append(search);
+
+  const serviceRows = [];
+  const serviceGroups = new Map();
+  for (const configured of [true, false]) {
+    const group = el('section', 'service-group');
+    group.dataset.configured = String(configured);
+    group.append(el('h4', 'service-group-title', t(configured ? 's.services_configured' : 's.services_available')));
+    serviceGroups.set(configured, group);
+    form.append(group);
+  }
+  const filterRows = () => {
+    const q = settingsQuery.trim().toLowerCase();
+    for (const [row, name] of serviceRows) row.hidden = !!q && !name.toLowerCase().includes(q);
+    for (const group of serviceGroups.values()) {
+      group.hidden = ![...group.querySelectorAll('.svc')].some((row) => !row.hidden);
+    }
+  };
+
+  const metas = draft.providerOrder.map((id) => metaFor(id)).filter(Boolean);
+  let draggedProviderId = null;
+  for (const meta of metas) {
+    const configured = isProviderConfigured(meta, true);
     const row = el('div', 'svc');
+    row.draggable = false;
+    row.addEventListener('dragstart', (event) => {
+      if (!event.target.closest('.svc-drag-handle')) {
+        event.preventDefault();
+        return;
+      }
+      draggedProviderId = meta.id;
+      row.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', meta.id);
+    });
+    row.addEventListener('dragend', () => {
+      draggedProviderId = null;
+      row.classList.remove('dragging');
+      for (const candidate of serviceRows.map(([item]) => item)) {
+        candidate.classList.remove('drag-over-before', 'drag-over-after');
+      }
+    });
+    row.addEventListener('dragover', (event) => {
+      if (!configured || !draggedProviderId || draggedProviderId === meta.id) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      const after = event.clientY > row.getBoundingClientRect().top + row.offsetHeight / 2;
+      row.classList.toggle('drag-over-before', !after);
+      row.classList.toggle('drag-over-after', after);
+    });
+    row.addEventListener('dragleave', (event) => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drag-over-before', 'drag-over-after');
+    });
+    row.addEventListener('drop', (event) => {
+      if (!configured || !draggedProviderId || draggedProviderId === meta.id) return;
+      event.preventDefault();
+      const order = [...draft.providerOrder];
+      const [draggedId] = order.splice(order.indexOf(draggedProviderId), 1);
+      let target = order.indexOf(meta.id);
+      const after = event.clientY > row.getBoundingClientRect().top + row.offsetHeight / 2;
+      if (after) target += 1;
+      order.splice(target, 0, draggedId);
+      draft.providerOrder = order;
+      draft.sort = 'custom';
+      const y = settings.scrollTop;
+      renderSettings();
+      settings.scrollTop = y;
+    });
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
-    toggle.checked = draft.enabled[meta.id] !== false;
+    toggle.checked = configured && draft.enabled[meta.id] !== false;
+    toggle.disabled = !configured;
+    toggle.setAttribute('aria-label', meta.name);
+    if (!configured) toggle.title = t('s.configure_first');
     toggle.onchange = () => (draft.enabled[meta.id] = toggle.checked);
+
+    const favorite = el('button', 'fav-toggle', draft.favorites.includes(meta.id) ? '★' : '☆');
+    favorite.type = 'button';
+    favorite.hidden = !configured;
+    favorite.classList.toggle('on', draft.favorites.includes(meta.id));
+    favorite.setAttribute('aria-pressed', String(draft.favorites.includes(meta.id)));
+    favorite.setAttribute('aria-label', t(draft.favorites.includes(meta.id) ? 's.unfavorite' : 's.favorite'));
+    favorite.title = favorite.getAttribute('aria-label');
+    favorite.onclick = () => {
+      const set = new Set(draft.favorites);
+      if (set.has(meta.id)) set.delete(meta.id);
+      else set.add(meta.id);
+      draft.favorites = [...set];
+      const on = set.has(meta.id);
+      favorite.textContent = on ? '★' : '☆';
+      favorite.classList.toggle('on', on);
+      favorite.setAttribute('aria-pressed', String(on));
+      favorite.setAttribute('aria-label', t(on ? 's.unfavorite' : 's.favorite'));
+      favorite.title = favorite.getAttribute('aria-label');
+    };
+
+    const dragHandle = el('button', 'svc-drag-handle', '⠿');
+    dragHandle.type = 'button';
+    dragHandle.draggable = true;
+    dragHandle.hidden = draft.sort !== 'custom' || !configured;
+    const dragLabel = t('s.drag_reorder', { name: meta.name });
+    dragHandle.title = dragLabel;
+    dragHandle.setAttribute('aria-label', dragLabel);
 
     const open = el('button', 'svc-main');
     open.type = 'button';
     open.append(
       el('span', 'svc-name', meta.name),
       el('span', 'spacer'),
-      el('span', 'svc-status', statusText(meta, last.providers[meta.id])),
+      el('span', 'svc-status', configured && !isProviderConfigured(meta)
+        ? t('s.status.configured') : statusText(meta, last.providers[meta.id])),
       el('span', 'svc-arrow', '›')
     );
     open.onclick = () => {
@@ -378,9 +621,11 @@ function mainScreen() {
       renderSettings();
     };
 
-    row.append(toggle, open);
-    form.append(row);
+    row.append(toggle, favorite, dragHandle, open);
+    serviceRows.push([row, meta.name]);
+    serviceGroups.get(configured).append(row);
   }
+  filterRows();
 
   form.append(el('h3', null, t('s.custom')));
   form.append(el('div', 'hint', t('s.custom_hint')));
@@ -491,6 +736,23 @@ function detailScreen(id) {
   form.append(head);
 
   const reading = last.providers[id];
+  if (meta.canLogin) {
+    const signIn = el('button', 'btn', t(isProviderConfigured(meta) ? 'card.resignin' : 'card.signin'));
+    signIn.type = 'button';
+    signIn.onclick = async () => {
+      signIn.disabled = true;
+      try {
+        await window.qw.login(id);
+        last = await window.qw.getState();
+        draft.enabled[id] = last.config.enabled[id] !== false;
+        renderSettings();
+      } catch (error) {
+        alert(error.message || String(error));
+        signIn.disabled = false;
+      }
+    };
+    form.append(signIn);
+  }
   const windows = (reading && reading.windows) || [];
   const labels = {};
   for (const w of windows) if (w.label) labels[w.key] = w.label;
@@ -511,6 +773,21 @@ function detailScreen(id) {
     };
     form.append(c.wrap);
   }
+
+  form.append(el('h3', null, t('s.notifications')));
+  const threshold = textInput(
+    'number',
+    draft.notificationThresholds[id] == null ? '' : draft.notificationThresholds[id],
+    '90'
+  );
+  threshold.min = 1;
+  threshold.max = 100;
+  threshold.oninput = () => {
+    const value = threshold.value.trim();
+    if (value) draft.notificationThresholds[id] = value;
+    else delete draft.notificationThresholds[id];
+  };
+  form.append(field(t('s.notify_threshold'), threshold, t('s.notify_threshold_hint')));
 
   form.append(el('h3', null, t('s.diagnostics')));
   if (!reading) {
@@ -1222,6 +1499,7 @@ function fieldEl(meta, f) {
   if (f.type === 'secret') {
     const input = textInput('password', '', meta.secrets[f.key] ? t('s.key_set_ph') : ph || '');
     input.oninput = () => {
+      if (input.value.trim() && !isProviderConfigured(meta)) draft.enabled[meta.id] = true;
       if (input.value.trim()) {
         draft.secrets[f.key] = input.value;
         delete draft.clear[f.key];
@@ -1274,7 +1552,13 @@ async function saveSettings(button) {
     intervalMin: draft.intervalMin,
     pinned: draft.pinned,
     openAtLogin: draft.openAtLogin,
+    mutedUntil: draft.mutedUntil,
+    notificationThresholds: { ...draft.notificationThresholds },
+    favorites: [...draft.favorites],
+    providerOrder: [...draft.providerOrder],
+    sort: draft.sort,
     skin: draft.skin,
+    density: draft.density,
     layout: draft.layout,
     dock: draft.dock,
     enabled: { ...draft.enabled },
@@ -1320,6 +1604,31 @@ $('#btn-refresh').onclick = () => window.qw.refresh();
 $('#btn-pin').onclick = () => window.qw.togglePin();
 $('#btn-config').onclick = () => (inSettings ? closeSettings() : openSettings());
 $('#btn-hide').onclick = () => window.qw.hide();
+
+document.addEventListener('keydown', (event) => {
+  if (event.defaultPrevented) return;
+  const mod = event.ctrlKey || event.metaKey;
+  if (mod && !event.altKey && event.key.toLowerCase() === 'r') {
+    event.preventDefault();
+    window.qw.refresh();
+    return;
+  }
+  if (mod && !event.altKey && event.key === ',') {
+    event.preventDefault();
+    if (inSettings) closeSettings();
+    else openSettings();
+    return;
+  }
+  if (mod && event.shiftKey && event.key.toLowerCase() === 'p') {
+    event.preventDefault();
+    window.qw.togglePin();
+    return;
+  }
+  if (event.key === 'Escape' && inSettings) {
+    event.preventDefault();
+    closeSettings();
+  }
+});
 
 window.qw.onState(render);
 window.qw.getState().then(render);
