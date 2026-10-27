@@ -6,3 +6,19 @@ Thumbs.db
 config.json
 .env
 .commandcode
+
+# Local agent instructions, memory, and planning artifacts.
+MEMORY.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+RTK.md
+.agents/
+.codex/
+.claude/
+.cursor/
+.windsurf/
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+docs/superpowers/
