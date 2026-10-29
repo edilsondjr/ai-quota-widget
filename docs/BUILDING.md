@@ -31,6 +31,17 @@ Then pick what you want:
 
 The first `npm install` downloads Electron (about 100 MB) and the first `npm run dist` downloads the installer tooling, so expect a few minutes and an internet connection.
 
+## Installer size
+
+The Windows build uses maximum compression and a solid 7z payload. Differential
+packages are disabled because the app checks GitHub releases and opens the release
+page for a full installer download; it does not use differential updates.
+
+Electron's bundled language resources are limited to the app's six supported
+languages: English, Spanish, Portuguese (Brazil), Chinese (Simplified), Japanese
+and German. Electron may also retain regional variants such as `es-419`.
+The Chromium runtime, graphics libraries and license notices remain included.
+
 ## Installing the result
 
 - Double-click `dist/Quota-Widget-Setup-<version>.exe` and follow the wizard, or

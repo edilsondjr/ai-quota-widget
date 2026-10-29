@@ -2,6 +2,12 @@
 
 All notable changes to Quota Widget. Versions follow SemVer.
 
+## 0.15.1 - 2026-10-29
+
+### Changed
+
+- Smaller Windows installer: maximum solid compression, Electron language resources limited to the six supported UI languages, and differential packages disabled because the update check opens the full installer download.
+
 ## 0.15.0 - 2026-10-26
 
 ### Added

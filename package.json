@@ -1,6 +1,6 @@
 {
   "name": "quota-widget",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "Always-on-top Windows widget that tracks your AI usage quotas across providers, with reset countdowns",
   "main": "main.js",
   "scripts": {
@@ -17,6 +17,15 @@
   "build": {
     "appId": "com.beamglyph.quotawidget",
     "productName": "Quota Widget",
+    "compression": "maximum",
+    "electronLanguages": [
+      "de",
+      "en-US",
+      "es",
+      "ja",
+      "pt-BR",
+      "zh-CN"
+    ],
     "files": [
       "main.js",
       "app-data.js",
@@ -41,6 +50,7 @@
       "icon": "build/icon.ico"
     },
     "nsis": {
+      "differentialPackage": false,
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
